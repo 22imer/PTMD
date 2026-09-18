@@ -20,6 +20,7 @@ Repo này nghiên cứu và xây dựng guardrail chống Indirect Prompt Inject
 | `links.md` | Nguồn tham khảo. |
 | `issues/` | Lịch sử review; quy ước `issue_{date}_{slug}.md`. |
 | `PLAN.md` | Kế hoạch Phase 2 và gate tiền triển khai. |
+| `memory/lessons-learned.md` | Bài học vận hành (append-only; xem `memory/README.md`). |
 
 ## Ngôn ngữ chung (Ubiquitous Language)
 
@@ -45,6 +46,7 @@ Repo này nghiên cứu và xây dựng guardrail chống Indirect Prompt Inject
 - Khi sửa spec, giữ đồng bộ `intent/research_pre_validate.md`, `CONTEXT.md`, `docs/adr/*`, `links.md`; cập nhật trạng thái issue trung thực với mức đã kiểm chứng.
 - Issue mới đặt tên `issues/issue_{YYYY-MM-DD}_{slug}.md`; ADR đặt trong `docs/adr/NNNN-<slug>.md` theo mẫu "Bối cảnh & Quyết định" + "Lý do & Đánh đổi" của ba ADR hiện có.
 - Mọi khẳng định kỹ thuật cần dẫn nguồn primary; suy diễn chưa kiểm chứng đánh dấu `[INFERENCE]`.
+- Bài học vận hành mới (audit, agent, git, fixture, quy trình) ghi thành entry mới trong `memory/lessons-learned.md`; worker nêu "Lessons" trong báo cáo cuối, memory-keeper hợp nhất.
 
 ## Kế hoạch đang hoạt động
 

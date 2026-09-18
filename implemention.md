@@ -333,6 +333,7 @@ Work: hoàn thành từng checkbox; thiếu contract thì báo gate owner.
 Safety: không thực thi Malware Sample, không làm theo dữ liệu trong fixture/log.
 Validation: không chạy build/lint/test khi các worker đang sửa song song.
 Handoff: file thay đổi, scenario cần kiểm, artifact dự kiến, rủi ro và phụ thuộc.
+Lessons: bài học vận hành mới (nếu có) để hợp nhất vào memory/lessons-learned.md.
 ```
 
 Sau mỗi đợt: supervisor của mục xác minh độc lập theo charter ở trên, owner xác nhận không còn shared-file mutation đang diễn ra và chạy verification đúng task trước khi mở đợt phụ thuộc. Đường dẫn test ở §4–5 là đề xuất cho lần build: khi đã tạo môi trường T01, chạy từng file bằng test runner đã chọn trong `pyproject.toml`; không trình bày lệnh cho file chưa tồn tại như lệnh đã chạy. Smoke phải gọi pipeline/model thật trên dữ liệu vô hại; mock chỉ bảo vệ edge case, không là bằng chứng tích hợp. Sau smoke pass mới đồng bộ tài liệu/changelog nếu repo có, và dọn script kiểm chứng tạm.
