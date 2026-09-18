@@ -61,3 +61,8 @@
 **Bài học:** Chuỗi hiệu quả cho gate: audit v1 (executor + supervisor độc lập) → fix có quyết định ghi log (D01–D18) → re-audit bằng agent MỚI → supervisor chốt điều kiện PASS → hoàn tất artifact (report v2 + issue ticks) trong cùng change-set.
 **Bằng chứng:** T00 v2: 8/8 CLOSED, gate PASS; reports/phase0-gate.json v2.
 **Quy tắc:** Không mở wave sau khi gate chưa PASS; mỗi mục có đúng 1 supervisor; quyết định thiết kế luôn ghi kèm artifact truy vết.
+
+## LL-013 · 2026-09-19 · git (untracked paths)
+**Bài học:** `git commit --only <paths>` không nhìn thấy file CHƯA được track — commit sẽ báo "pathspec did not match" cho file mới. Cần `git add <đúng các file của mình>` trước, rồi mới `git commit --only ...`.
+**Bằng chứng:** phiên memory-keeper: commit 41088c2 phải chạy `git add -- memory/README.md memory/lessons-learned.md` trước khi commit thành công (chỉ add file của mình để tránh trộn file agent khác).
+**Quy tắc:** Trong worktree nhiều agent: `git add <file mình>` (tuyệt đối không `-A`) → `git commit --only <file mình>`.
