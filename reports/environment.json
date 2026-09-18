@@ -14,6 +14,8 @@
     "machine": "x86_64",
     "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41"
   },
+  "confusables_path": "src/guardrail/data/confusables_min.json",
+  "confusables_sha256": "c2beb62637acf12654d9403635ac9b7d515df33ef0c67bd4b6e337783cc526cf",
   "packages": {
     "jsonschema": "4.26.0",
     "pytest": "9.1.1"

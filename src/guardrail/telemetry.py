@@ -27,6 +27,11 @@ Chỉ nhận value độ dài ≥6 và không bắt đầu bằng ``0x``.
 ``network.http``/``network.dns`` ngoài phạm vi adapter (spec §3.2.2) và không bị
 đồng nhất với API arguments; URL/network do đường dẫn khác xử lý.
 
+Giá trị của API họ ``W`` đôi khi là chuỗi wide dạng byte thô
+(``W\\x00I\\x00D\\x00E\\x00``). Adapter giải mã dạng NUL-interleaved này
+(``_decode_nul_interleaved``) **trước** các bộ lọc độ dài/tiền tố ``0x``, để chuỗi
+đưa vào Lớp 0–1 đồng nhất với đường static UTF-16LE của ``extraction``.
+
 Ngân sách 2.000 chuỗi/mẫu của pha trích xuất (spec §3.2.1) cũng áp cho adapter:
 tham số ``max_strings`` (mặc định ``MAX_STRINGS``); vượt trần → dừng trích và
 ``coverage=PARTIAL``.
@@ -49,6 +54,33 @@ __all__ = [
 
 _MIN_VALUE_LENGTH = 6
 _HEX_PREFIX = "0x"
+#: Độ dài tối thiểu (byte) của một ứng viên wide NUL-interleaved (spec §3.2.2).
+_MIN_WIDE_BYTES = 4
+
+
+def _decode_nul_interleaved(value: str) -> str:
+    """Giải mã giá trị wide ``W\\x00I\\x00D\\x00E\\x00`` (raw UTF-16LE bytes).
+
+    ``OutputDebugStringW``/``MessageBoxW`` đôi khi để lộ chuỗi wide dạng byte thô
+    (mỗi ký tự ASCII kèm một NUL) trong ``value``. Để nguyên dạng thì regex liền
+    mạch của Lớp 1 (ví dụ ``/ignore\\s+previous\\s+instructions/i``) không bao giờ
+    khớp, trong khi đường static UTF-16LE của ``extraction`` xử lý đúng cùng
+    payload — adapter phải đồng nhất với đường static.
+
+    Nhận diện thận chặt (không đoán bừa): độ dài >= 4 **và** chẵn, mọi ký tự ở
+    chỉ số lẻ là NUL, mọi ký tự ở chỉ số chẵn là in được (hoặc ``\\r\\n\\t``) và
+    thuộc latin-1. Không khớp ⇒ trả nguyên giá trị.
+    """
+    if len(value) < _MIN_WIDE_BYTES or len(value) % 2 != 0:
+        return value
+    if any(char != "\x00" for char in value[1::2]):
+        return value
+    if not all(char.isprintable() or char in "\r\n\t" for char in value[0::2]):
+        return value
+    try:
+        return value.encode("latin-1").decode("utf-16-le")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return value
 
 
 class TelemetryString(RawString):
@@ -287,6 +319,9 @@ class TelemetryIngestionAdapter:
                     )
                 )
                 continue
+            # Giải mã wide NUL-interleaved TRƯỚC các bộ lọc để ngưỡng độ dài/tiền
+            # tố 0x áp lên chuỗi thật sự được đưa vào Lớp 0–1.
+            value = _decode_nul_interleaved(value)
             if len(value) < _MIN_VALUE_LENGTH or value.startswith(_HEX_PREFIX):
                 continue
 

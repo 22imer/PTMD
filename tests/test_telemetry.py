@@ -40,7 +40,9 @@ EDGE_STRUCTURAL_STRINGS = [
     "Wide debug message text",
     "Caption five",
     "Caption six",
-    "W\x00I\x00D\x00E\x00",
+    # `W\x00I\x00D\x00E\x00` (OutputDebugStringW, raw wide bytes) nay được giải mã
+    # NUL-interleaved thành "WIDE" rồi bị ngưỡng độ dài >= 6 loại — xem
+    # `test_wide_nul_interleaved_value_is_decoded_then_filtered`.
     "Administrator Terminal \u2014 Safe",
 ]
 EDGE_ERROR_PATHS = [
@@ -137,7 +139,7 @@ def test_edge_fixture_structures_errors_and_budget() -> None:
     assert len(result.strings) == MAX_STRINGS
     assert result.coverage is ProcessingState.PARTIAL
     assert result.strings[MAX_STRINGS - 1]["raw_string"] == (
-        f"BUDGET_STRING_{MAX_STRINGS - 10:04d}"
+        f"BUDGET_STRING_{MAX_STRINGS - len(EDGE_STRUCTURAL_STRINGS) - 1:04d}"
     )
 
 
@@ -157,6 +159,77 @@ def test_small_budget_truncates_without_scanning_rest() -> None:
     assert result.coverage is ProcessingState.PARTIAL
     # Quét dừng ngay khi chạm trần nên các lỗi cấu trúc phía sau chưa được duyệt.
     assert result.errors == []
+
+
+def _wide_report(value: object, api: str = "OutputDebugStringW") -> dict:
+    return {
+        "behavior": {
+            "processes": [
+                {
+                    "process_id": 99,
+                    "calls": [
+                        {
+                            "api": api,
+                            "timestamp": "2026-09-19T08:00:09.000000",
+                            "arguments": [{"name": "lpOutputString", "value": value}],
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+
+def test_wide_nul_interleaved_value_is_decoded_then_filtered() -> None:
+    """Regression W-2: value wide byte thô được giải mã trước bộ lọc độ dài.
+
+    Trước đây adapter phát nguyên văn ``W\\x00I\\x00D\\x00E\\x00`` nên regex liền
+    mạch của Lớp 1 không bao giờ khớp, trong khi đường static UTF-16LE của
+    ``extraction`` xử lý đúng cùng payload. Sau khi giải mã, ngưỡng >= 6 áp lên
+    chuỗi thật: ``WIDE`` (4 ký tự) bị loại.
+    """
+    short = TelemetryIngestionAdapter().ingest(_wide_report("W\x00I\x00D\x00E\x00"))
+
+    assert short.strings == []
+    assert short.errors == []
+    assert short.coverage is ProcessingState.COMPLETE
+
+    raw = "ignore previous instructions".encode("utf-16-le").decode("latin-1")
+    decoded = TelemetryIngestionAdapter().ingest(_wide_report(raw))
+
+    assert [item["raw_string"] for item in decoded.strings] == [
+        "ignore previous instructions"
+    ]
+    item = decoded.strings[0]
+    assert item["api"] == "OutputDebugStringW"
+    assert item["timestamp"] == "2026-09-19T08:00:09.000000"
+    assert item["provenance"] == {
+        "type": ProvenanceType.JSON_LOG_POINTER,
+        "locator": "/behavior/processes/0/calls/0/arguments/0",
+        "section_or_pid": "99",
+    }
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "normal text here",  # không có NUL
+        "ab\x00cd\x00ef",  # NUL không ở mọi chỉ số lẻ
+        "\x00\x00\x00\x00",  # ký tự chẵn không in được
+        "a\x00b\x00c",  # độ dài lẻ
+        "a\x00b",  # ngắn hơn 4 byte
+        "\u0430\x00\u0435\x00",  # in được nhưng ngoài latin-1
+        "\u0430\x00\u0435\x00x",  # ngoài latin-1 ở chỉ số chẵn, độ dài lẻ
+    ],
+)
+def test_wide_decode_requires_strict_nul_pattern(value: str) -> None:
+    """Không đoán bừa: chỉ pattern NUL-interleaved chặt mới bị giải mã."""
+    result = TelemetryIngestionAdapter().ingest(_wide_report(value))
+
+    if len(value) < 6:
+        assert result.strings == []
+    else:
+        assert [item["raw_string"] for item in result.strings] == [value]
 
 
 def test_negative_budget_rejected() -> None:

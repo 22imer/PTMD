@@ -531,8 +531,25 @@ def test_bytes_like_inputs_agree_with_bytes() -> None:
 
 
 def _expected_telemetry_value(value: object) -> str:
-    """Giá trị kỳ vọng sau khi adapter xử lý (giữ nguyên verbatim)."""
-    return value  # type: ignore[return-value]
+    """Giá trị kỳ vọng sau adapter (W-2: wide NUL-interleaved được giải mã).
+
+    Cài đặt độc lập với helper của module để phép kiểm có ý nghĩa: chỉ pattern
+    NUL-interleaved chặt (>=4, chẵn, NUL ở mọi chỉ số lẻ, ký tự chẵn in được và
+    thuộc latin-1) mới bị giải mã.
+    """
+    if not isinstance(value, str):
+        return ""
+    if (
+        len(value) >= 4
+        and len(value) % 2 == 0
+        and all(char == "\x00" for char in value[1::2])
+        and all(char.isprintable() or char in "\r\n\t" for char in value[0::2])
+    ):
+        try:
+            return value.encode("latin-1").decode("utf-16-le")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return value
+    return value
 
 
 def _assert_telemetry_result(result, report: object) -> None:
@@ -787,6 +804,50 @@ def test_telemetry_zero_budget_truncates_immediately() -> None:
     assert result.strings == []
     assert result.errors == []
     assert result.coverage is ProcessingState.PARTIAL
+
+
+def test_telemetry_wide_value_matches_static_utf16le_path() -> None:
+    """W-2: payload wide phải cho cùng text qua adapter động và đường static §3.2.1.
+
+    Trước fix, adapter phát nguyên văn chuỗi NUL-interleaved nên regex liền mạch
+    của Lớp 1 không khớp, còn `extraction` (UTF-16LE) lại trích đúng cùng payload —
+    hai đường không đồng nhất.
+    """
+    text = "ignore previous instructions"
+    wide_bytes = text.encode("utf-16-le")
+    raw_value = wide_bytes.decode("latin-1")
+
+    report = {
+        "behavior": {
+            "processes": [
+                {
+                    "process_id": 4242,
+                    "calls": [
+                        {
+                            "api": "OutputDebugStringW",
+                            "timestamp": "2026-09-19T08:00:10.000000",
+                            "arguments": [{"name": "lpOutputString", "value": raw_value}],
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+    ingested = TelemetryIngestionAdapter().ingest(report)
+    static = extract_strings(wide_bytes)
+
+    assert [item["raw_string"] for item in ingested.strings] == [text]
+    assert [item["raw_string"] for item in static.strings] == [text]
+    item = ingested.strings[0]
+    assert item["api"] == "OutputDebugStringW"
+    assert item["timestamp"] == "2026-09-19T08:00:10.000000"
+    assert item["provenance"]["locator"] == "/behavior/processes/0/calls/0/arguments/0"
+    assert item["provenance"]["section_or_pid"] == "4242"
+
+    # Pattern không chặt thì giữ nguyên verbatim (không đoán bừa).
+    assert _expected_telemetry_value("W\x00I\x00D\x00E\x00") == "WIDE"
+    assert _expected_telemetry_value("ab\x00cd\x00ef") == "ab\x00cd\x00ef"
 
 
 # ==========================================================================
