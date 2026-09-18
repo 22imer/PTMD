@@ -10,25 +10,40 @@ captures của chúng, ``references``, ``authors``, ``examples``, siêu dữ li�
 ``maec`` — bị tước bỏ hoàn toàn trước khi rời module này, nên không có đường nào
 để free-text từ mẫu/telemetry đi vào context của Agent qua nhánh Capability.
 
-Shape đã đối chiếu (nguồn chính thức `mandiant/capa`, kiểm tra 2026-09-19 trên
-`master`):
+Shape đã đối chiếu (nguồn chính thức `mandiant/capa`, đối chiếu 2026-09-19 trên
+`master` **và** trên bản phát hành `capa==9.1.0`):
 
 - ``capa/render/json.py`` render bằng
-  ``ResultDocument.model_dump_json(exclude_none=True)``.
+  ``ResultDocument.from_capa(...).model_dump_json(exclude_none=True)`` — **không**
+  truyền ``by_alias``.
+- Vì pydantic serialize theo *tên field* chứ không theo *alias*, JSON thật phát
+  ra khóa **``attack``** (field ``attack`` có alias ``att&ck``) và cờ rule con là
+  **``is_subscope_rule``** (field ``is_subscope_rule`` có alias ``capa/subscope``).
+  Các khóa alias ``att&ck`` / ``capa/subscope`` **không** xuất hiện trong output
+  `capa -j`; ``capa/subscope-rule`` chỉ là khóa meta trong YAML rule nguồn và
+  cũng không xuất hiện trong JSON (rule con bị ``ResultDocument.from_capa`` lọc
+  bỏ trước khi serialize).
 - Tài liệu gốc: ``{"meta": Metadata, "rules": {<rule name>: RuleMatches}}``.
 - ``RuleMatches``: ``{"meta": RuleMetadata, "source": str, "matches": [[address, Match], ...]}``.
 - ``RuleMetadata`` gồm ``name``, ``namespace`` (None bị ``exclude_none`` lược bỏ),
-  ``att&ck``, ``mbc``, ``description``, ``references``, ``examples``,
-  ``capa/subscope-rule``...; ``namespace`` là định danh kỹ thuật, phần còn lại là
-  free-text.
-- ``att&ck`` là mảng ``AttackSpec`` — object
+  ``attack``, ``mbc``, ``description``, ``references``, ``examples``,
+  ``is_subscope_rule``, ``maec``...; ``namespace`` là định danh kỹ thuật, phần
+  còn lại là free-text.
+- ``attack`` là mảng ``AttackSpec`` — object
   ``{"parts": [...], "tactic": str, "technique": str, "subtechnique": str, "id": str}``
   — chuyển từ dạng canonical ``Tactic::Technique::Subtechnique [Identifier]``,
   ví dụ ``Execution::Command and Scripting Interpreter::Windows Command Shell [T1059.003]``.
 
-Module chấp nhận **cả hai** dạng phần tử ``att&ck`` — object (định dạng JSON
-chính thức của capa hiện hành) và chuỗi canonical — để không bám cứng vào một
-phiên bản capa.
+Đọc ``attack`` trước, chỉ fallback sang ``att&ck`` khi tài liệu **không** có khóa
+``attack`` (dung sai cho tài liệu cũ/hand-made in theo alias). Một giá trị
+``attack`` hiện diện nhưng sai kiểu luôn ``raise``, không bao giờ bị bỏ qua im
+lặng.
+
+Module chấp nhận **cả hai** dạng phần tử ``attack`` — object (định dạng JSON
+chính thức của capa) và chuỗi canonical. Dạng chuỗi canonical
+(``Tactic::Technique::Subtechnique [Identifier]``) là từ vựng của **YAML rule
+nguồn**, không phải dạng nào mà bất kỳ phiên bản capa nào phát ra trong JSON; nó
+được giữ như dung sai robustness, không phải để tương thích producer.
 
 Phân biệt rõ hai kết cục "rỗng":
 
@@ -57,8 +72,13 @@ __all__ = [
 #: Bốn trường duy nhất được phép rời module này (spec §3.3).
 ALLOWLIST_FIELDS: tuple[str, ...] = ("tactic", "technique_id", "technique_name", "namespace")
 
-_SUBSCOPE_RULE_KEY = "capa/subscope-rule"
-_ATTACK_KEY = "att&ck"
+#: Khóa ATT&CK trong output JSON thật (field ``attack``, alias ``att&ck``).
+_ATTACK_KEY = "attack"
+#: Khóa alias cũ — chỉ có ở tài liệu in theo alias, không phải output `capa -j`.
+_ATTACK_KEY_LEGACY = "att&ck"
+#: Các khóa đánh dấu rule con (subscope), theo thứ tự: tên field thật, alias
+#: pydantic của field đó, và khóa meta YAML nguồn (không xuất hiện trong JSON).
+_SUBSCOPE_RULE_KEYS = ("is_subscope_rule", "capa/subscope", "capa/subscope-rule")
 
 
 class CapabilityProjection(TypedDict):
@@ -89,13 +109,13 @@ def project_capabilities(capa_json: object) -> list[CapabilityProjection]:
     một mapping đã parse từ trước.
 
     Kết quả đã dedupe theo trọn bộ bốn trường, giữ thứ tự xuất hiện. Rule không
-    có entry ATT&CK (inert) bị bỏ qua; rule con ``capa/subscope-rule`` bị bỏ qua
+    có entry ATT&CK (inert) bị bỏ qua; rule con (``is_subscope_rule``) bị bỏ qua
     đúng như capa không phát chúng trong output chính thức.
 
     Raise:
         CapaaSyntaxError: chuỗi input không phải JSON hợp lệ.
         CapaStructureError: JSON không đúng shape tài liệu capa (thiếu/`rules`
-            sai kiểu, rule thiếu ``meta``, ``att&ck`` sai kiểu, entry thiếu
+            sai kiểu, rule thiếu ``meta``, ``attack`` sai kiểu, entry thiếu
             định danh...).
     """
     document = _as_document(capa_json)
@@ -109,7 +129,7 @@ def project_capabilities(capa_json: object) -> list[CapabilityProjection]:
     seen: set[tuple[str, str, str, str]] = set()
     for rule_name, rule in rules.items():
         meta = _rule_meta(rule_name, rule)
-        if meta.get(_SUBSCOPE_RULE_KEY) is True:
+        if any(meta.get(key) is True for key in _SUBSCOPE_RULE_KEYS):
             continue
         namespace = _namespace(rule_name, meta)
         for entry in _attack_entries(rule_name, meta):
@@ -162,12 +182,15 @@ def _namespace(rule_name: object, meta: Mapping[str, object]) -> str:
 
 
 def _attack_entries(rule_name: object, meta: Mapping[str, object]) -> list[object]:
-    entries = meta.get(_ATTACK_KEY, [])
+    # Output `capa -j` thật dùng khóa ``attack``; ``att&ck`` chỉ là alias pydantic
+    # và chỉ xuất hiện ở tài liệu in theo alias — fallback chỉ khi thiếu ``attack``.
+    key = _ATTACK_KEY if _ATTACK_KEY in meta else _ATTACK_KEY_LEGACY
+    entries = meta.get(key, [])
     if entries is None:
         # Phòng producer ghi null thay vì [] cho rule không có mapping.
         return []
     if not isinstance(entries, list):
-        raise CapaStructureError(f"rule {rule_name!r}: 'att&ck' phải là một mảng")
+        raise CapaStructureError(f"rule {rule_name!r}: {key!r} phải là một mảng")
     return entries
 
 
@@ -181,11 +204,11 @@ def _project_entry(rule_name: object, entry: object) -> tuple[str, str, str]:
         technique_id = _entry_str(rule_name, entry, "id")
     else:
         raise CapaStructureError(
-            f"rule {rule_name!r}: entry 'att&ck' phải là object hoặc chuỗi canonical"
+            f"rule {rule_name!r}: entry {_ATTACK_KEY!r} phải là object hoặc chuỗi canonical"
         )
     if not technique_id:
         raise CapaStructureError(
-            f"rule {rule_name!r}: entry 'att&ck' thiếu định danh kỹ thuật 'id'"
+            f"rule {rule_name!r}: entry {_ATTACK_KEY!r} thiếu định danh kỹ thuật 'id'"
         )
     # technique_name: theo ví dụ spec §3.5.2, dùng tên subtechnique khi có, nếu
     # không thì tên technique (phần còn lại đã được mã hoá trong technique_id).
@@ -203,14 +226,17 @@ def _entry_str(
     if value is None:
         return ""
     if not isinstance(value, str):
-        raise CapaStructureError(f"rule {rule_name!r}: 'att&ck[].{key}' phải là string")
+        raise CapaStructureError(f"rule {rule_name!r}: '{_ATTACK_KEY}[].{key}' phải là string")
     return value
 
 
 def _parse_canonical_attack(
     rule_name: object, spec: str
 ) -> tuple[str, str, str, str]:
-    """Parse dạng canonical của capa: ``Tactic::Technique::Subtechnique [Identifier]``.
+    """Parse dạng canonical của YAML rule: ``Tactic::Technique::Subtechnique [Identifier]``.
+
+    Đây là từ vựng **YAML rule nguồn** (``AttackSpec.from_str``), không phải dạng
+    mà bất kỳ phiên bản capa nào ghi ra JSON — giữ như dung sai robustness.
 
     Trả ``(tactic, technique_id, technique, subtechnique)``.
     """
