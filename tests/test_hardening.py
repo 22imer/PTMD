@@ -1331,6 +1331,38 @@ def test_two_runs_are_byte_identical_across_modules(engine: NormalizationEngine)
         samples.append(("extraction", _random_blob(rng)))
     for _ in range(10):
         samples.append(("capa", capa_document))
+    telemetry_reports = [
+        {
+            "behavior": {
+                "processes": [
+                    {
+                        "process_id": 77,
+                        "calls": [
+                            {
+                                "api": "OutputDebugStringW",
+                                "arguments": [
+                                    {
+                                        "name": "lpOutputString",
+                                        "value": "payload wide text"
+                                        .encode("utf-16-le")
+                                        .decode("latin-1"),
+                                    },
+                                    {"name": "lpOutputString", "value": "short"},
+                                ],
+                            },
+                            {"api": "MessageBoxA", "arguments": "not-a-list"},
+                        ],
+                    },
+                    {"process_id": True, "calls": []},
+                ]
+            }
+        },
+        _random_cape_report(
+            rng, ["OutputDebugStringA", "MessageBoxW"], ["lpOutputString", "lpText"]
+        ),
+    ]
+    for report in telemetry_reports:
+        samples.append(("telemetry", report))
 
     for kind, sample in samples:
         if kind == "normalization":
@@ -1338,6 +1370,8 @@ def test_two_runs_are_byte_identical_across_modules(engine: NormalizationEngine)
             run = lambda: engine.normalize(raw, prov)  # noqa: E731
         elif kind == "extraction":
             run = lambda sample=sample: extract_strings(sample)  # noqa: E731
+        elif kind == "telemetry":
+            run = lambda sample=sample: TelemetryIngestionAdapter().ingest(sample)  # noqa: E731
         else:
             run = lambda sample=sample: project_capabilities(sample)  # noqa: E731
         assert _digest(run()) == _digest(run()), kind
