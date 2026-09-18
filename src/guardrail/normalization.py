@@ -145,7 +145,13 @@ class NormalizationEngine:
             transforms.append("HOMOGLYPH_RESOLVE")
 
         # 4. Bounded recursive decoding (Base64 trước, rồi Hex; ngân sách byte UTF-8)
-        if depth < MAX_DECODING_DEPTH and len(text.encode("utf-8")) <= MAX_DECODE_INPUT_BYTES:
+        # `surrogatepass`: ngân sách tính trên byte UTF-8 như spec §3.1, nhưng chuỗi
+        # chứa lone surrogate (ví dụ giá trị JSON escape "\ud800" từ report CAPEv2)
+        # vẫn phải đo được thay vì ném UnicodeEncodeError.
+        if (
+            depth < MAX_DECODING_DEPTH
+            and len(text.encode("utf-8", "surrogatepass")) <= MAX_DECODE_INPUT_BYTES
+        ):
             decoded = self._try_decode(text)
             if decoded is not None and self._is_mostly_printable(decoded):
                 transforms.append(f"DECODE_RECURSIVE_D{depth + 1}")
