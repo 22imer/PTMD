@@ -66,3 +66,23 @@
 **Bài học:** `git commit --only <paths>` không nhìn thấy file CHƯA được track — commit sẽ báo "pathspec did not match" cho file mới. Cần `git add <đúng các file của mình>` trước, rồi mới `git commit --only ...`.
 **Bằng chứng:** phiên memory-keeper: commit 41088c2 phải chạy `git add -- memory/README.md memory/lessons-learned.md` trước khi commit thành công (chỉ add file của mình để tránh trộn file agent khác).
 **Quy tắc:** Trong worktree nhiều agent: `git add <file mình>` (tuyệt đối không `-A`) → `git commit --only <file mình>`.
+
+## LL-014 · 2026-09-19 · parser/producer vocabulary
+**Bài học:** Parser bám sai vocabulary của producer: capa `model_dump_json` (không by_alias) phát khóa FIELD `attack`/`is_subscope_rule`, còn parser đọc alias `att&ck`/`capa/subscope-rule` → trả rỗng GIẢ trên mọi tài liệu thật; fixture viết bằng alias nên 33 test tự-xác-nhận không bắt được.
+**Bằng chứng:** CapabilityWatch BLOCK (capa 9.1.0 thật: 27 entries → 0 rows); fix a609dc2 + fixture thật từ capa-testfiles re-serialize bằng capa 9.1.0 (`capa_rd_real_small.json`); mutation chứng minh test bắt được.
+**Quy tắc:** Mọi parser cho output công cụ ngoài phải có ≥1 artifact do chính công cụ (đúng version ghim) phát ra trong test; fixture tổng hợp không được là bằng chứng duy nhất.
+
+## LL-015 · 2026-09-19 · hardening loop
+**Bài học:** Loop fuzz+coverage tìm bug thật: (B1) normalize crash `UnicodeEncodeError` với lone surrogate — reachable từ JSON escape `\ud800` trong report CAPE; (W-2) chuỗi wide NUL-interleaved lọt lưới detector. Cả hai đều là dữ liệu telemetry thật.
+**Bằng chứng:** commits 114501e (surrogatepass) + 98f7027 (decode NUL-interleaved); coverage 100/100/100/100/97.33% với missing-lines documented; regression tests trong test_hardening/test_telemetry.
+**Quy tắc:** Seed cố định + fuzz biên cho mọi module parse chuỗi; coi lone surrogate và NUL-interleaved là đầu vào chuẩn phải xử lý; mutation-test chứng minh guard test thật.
+
+## LL-016 · 2026-09-19 · git đa agent (incident)
+**Bài học:** Rebuild history (A–E) chạy trước khi lệnh dừng tới: master bị move 12s rồi được khôi phục nguyên trạng nhờ ref backup `refs/steward-backup/*` — 4 commit song song không mất, nhưng suýt mất reachability.
+**Bằng chứng:** steward báo cáo: restore CAS qua update-ref, xoá 4 branch tạm, giữ backup ref; reflog xác nhận chuỗi tuyến tính còn đủ 41088c2/01191d1/a849474/82bd76a.
+**Quy tắc:** Cấm rewrite history khi còn agent commit song song; quản lý feat bằng commit path-scoped + branch marker (+ backup ref trước mọi ref move); chỉ rewrite trong cửa sổ tĩnh.
+
+## LL-017 · 2026-09-19 · supervision → fix loop
+**Bài học:** Supervisor trả PASS kèm residuals đánh số (W-1..4, R1..R12) là đầu ra chuẩn, không phải "xong": Mục F PASS tooling nhưng PARTIAL empirical (thiếu dataset/lab); residuals kiểu tooling phải vào loop-2 ngay, residuals kiểu empirical phải ghi blocked rõ.
+**Bằng chứng:** muc-f-sup 12 residuals; loop-2 giao lại t09; W-2 được đóng bằng fix + regression.
+**Quy tắc:** Mỗi residual có ID + severity + fix và được theo dõi trong todo; phân loại "tooling-closeable" vs "external-blocked" trước khi tuyên bố trạng thái mục.
