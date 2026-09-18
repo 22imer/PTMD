@@ -245,7 +245,7 @@ def _parse_canonical_attack(
     head, _, identifier = tail.rpartition(" ")
     if not (identifier.startswith("[") and identifier.endswith("]")):
         raise CapaStructureError(
-            f"rule {rule_name!r}: entry 'att&ck' dạng chuỗi phải kết thúc bằng "
+            f"rule {rule_name!r}: entry {_ATTACK_KEY!r} dạng chuỗi phải kết thúc bằng "
             f"'[<id>]': {spec!r}"
         )
     parts.append(head)
