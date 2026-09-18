@@ -1,0 +1,39 @@
+{
+  "id": "environment",
+  "date": "2026-09-19",
+  "purpose": "Manifest môi trường tái lập cho prototype Phase 2 (T01): khoá Python, platform và version của dependency dùng để chạy contract test. Pin YARA/CAPEv2/model nằm ở reports/integration-pin.json (spec §3.2.2).",
+  "python": {
+    "version": "3.11.15",
+    "implementation": "CPython",
+    "executable": "/mnt/d/Năm 4/PTMD/.venv/bin/python",
+    "venv_path": ".venv"
+  },
+  "platform": {
+    "system": "Linux",
+    "release": "6.18.33.2-microsoft-standard-WSL2",
+    "machine": "x86_64",
+    "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41"
+  },
+  "packages": {
+    "jsonschema": "4.26.0",
+    "pytest": "9.1.1"
+  },
+  "frozen": [
+    "attrs==26.1.0",
+    "iniconfig==2.3.0",
+    "jsonschema==4.26.0",
+    "jsonschema-specifications==2025.9.1",
+    "packaging==26.3",
+    "pluggy==1.6.0",
+    "Pygments==2.21.0",
+    "pytest==9.1.1",
+    "referencing==0.37.0",
+    "rpds-py==2026.6.3",
+    "typing_extensions==4.16.0"
+  ],
+  "reproduce": [
+    "python3 -m venv .venv",
+    ".venv/bin/python -m pip install jsonschema pytest",
+    ".venv/bin/python -m pytest tests/test_contracts.py -q"
+  ]
+}

@@ -1,0 +1,264 @@
+{
+  "communities": {
+    "0": [
+      "context_glossary",
+      "context_guardrail_system",
+      "context_indirect_prompt_injection",
+      "context_malware_sample",
+      "intent_research_pre_validate_ai_soc_neurosymbolic_paper",
+      "intent_research_pre_validate_core_hypothesis",
+      "intent_research_pre_validate_document",
+      "intent_research_pre_validate_greshake_paper",
+      "intent_research_pre_validate_links_md",
+      "intent_research_pre_validate_nist_vassilev_proof",
+      "intent_research_pre_validate_nvidia_nemo_guardrails",
+      "intent_research_pre_validate_vigil_llm",
+      "issues_issue_2026_09_18_review_intent_specs_document",
+      "issues_issue_2026_09_18_review_intent_specs_f06",
+      "issues_issue_2026_09_18_review_intent_specs_f08",
+      "issues_issue_2026_09_18_review_intent_specs_mandiant_capa_readme",
+      "specs_guardrail_malware_agent_spec_csa_maestro",
+      "specs_guardrail_malware_agent_spec_document",
+      "specs_guardrail_malware_agent_spec_four_group_dataset",
+      "specs_guardrail_malware_agent_spec_neurosymbolic_defense_in_depth",
+      "specs_guardrail_malware_agent_spec_nist_ai_rmf",
+      "specs_guardrail_malware_agent_spec_residual_risk_model",
+      "specs_guardrail_malware_agent_spec_target_sla_hypotheses",
+      "specs_guardrail_malware_agent_spec_windows_pe"
+    ],
+    "1": [
+      "context_capev2_sandbox",
+      "context_mandiant_capa",
+      "context_mitre_attack",
+      "context_yara",
+      "docs_adr_0001_separate_capa_from_capev2_capa_sandbox_ambiguity",
+      "docs_adr_0001_separate_capa_from_capev2_data_sanitizer",
+      "docs_adr_0001_separate_capa_from_capev2_decision",
+      "docs_adr_0001_separate_capa_from_capev2_document",
+      "intent_pre_validate_document",
+      "intent_pre_validate_ml_tool",
+      "intent_pre_validate_static_preprocessing",
+      "intent_research_pre_validate_capability_branch",
+      "intent_research_pre_validate_scope_reconciliation",
+      "issues_issue_2026_09_18_review_intent_specs_cape_capa_distinction",
+      "issues_issue_2026_09_18_review_intent_specs_f04",
+      "issues_issue_2026_09_18_review_intent_specs_yara_cuckoo_module_docs",
+      "specs_guardrail_malware_agent_spec_capa_abstraction_layer",
+      "specs_guardrail_malware_agent_spec_owasp_llm_top10_2025",
+      "specs_guardrail_malware_agent_spec_telemetry_ingestion_adapter",
+      "specs_guardrail_malware_agent_spec_yara_cuckoo_module"
+    ],
+    "2": [
+      "links_ai_soc_neurosymbolic",
+      "links_capev2_sandbox",
+      "links_end_to_end_guardrail_pipeline",
+      "links_google_saif_model_armor",
+      "links_greshake_ipi_paper",
+      "links_guardrails_ai",
+      "links_hackett_evasion",
+      "links_mandiant_capa",
+      "links_meta_prompt_guard",
+      "links_nemo_guardrails",
+      "links_nexuscore_mcp",
+      "links_pe_sieve",
+      "links_prompt_shields_spotlighting",
+      "links_protect_ai_llm_guard",
+      "links_vassilev_proof",
+      "links_vigil_llm",
+      "links_yara_cuckoo_module"
+    ],
+    "3": [
+      "docs_adr_0003_passive_consumer_agent_excessive_agency",
+      "intent_research_pre_validate_threat_model",
+      "issues_issue_2026_09_18_review_intent_specs_f05",
+      "specs_guardrail_malware_agent_spec_aml_t0043",
+      "specs_guardrail_malware_agent_spec_aml_t0051_001",
+      "specs_guardrail_malware_agent_spec_aml_t0053",
+      "specs_guardrail_malware_agent_spec_aml_t0056",
+      "specs_guardrail_malware_agent_spec_attack_t1059_003",
+      "specs_guardrail_malware_agent_spec_attack_t1497",
+      "specs_guardrail_malware_agent_spec_mitre_atlas_2026_09",
+      "specs_guardrail_malware_agent_spec_owasp_llm01_2025",
+      "specs_guardrail_malware_agent_spec_owasp_llm06_2025",
+      "specs_guardrail_malware_agent_spec_owasp_llm07_2025",
+      "specs_guardrail_malware_agent_spec_security_standards_mapping"
+    ],
+    "4": [
+      "context_deberta_v2",
+      "context_meta_prompt_guard",
+      "intent_research_pre_validate_detection_branch",
+      "issues_issue_2026_09_18_review_intent_specs_f02",
+      "specs_guardrail_malware_agent_spec_aml_t0015",
+      "specs_guardrail_malware_agent_spec_aml_t0054",
+      "specs_guardrail_malware_agent_spec_attack_t1027",
+      "specs_guardrail_malware_agent_spec_normalization_engine",
+      "specs_guardrail_malware_agent_spec_pe_sieve",
+      "specs_guardrail_malware_agent_spec_prompt_guard_86m",
+      "specs_guardrail_malware_agent_spec_yara_engine"
+    ],
+    "5": [
+      "context_execution_rails",
+      "context_passive_consumer_agent",
+      "docs_adr_0003_passive_consumer_agent_decision",
+      "docs_adr_0003_passive_consumer_agent_document",
+      "docs_adr_0003_passive_consumer_agent_interactive_controller",
+      "docs_adr_0003_passive_consumer_agent_mcp",
+      "specs_guardrail_malware_agent_spec_final_output_report_schema",
+      "specs_guardrail_malware_agent_spec_guardrails_ai",
+      "specs_guardrail_malware_agent_spec_output_governance",
+      "specs_guardrail_malware_agent_spec_read_only_dispatcher",
+      "specs_guardrail_malware_agent_spec_runtime_execution_rails"
+    ],
+    "6": [
+      "context_promptware",
+      "context_quarantined_evidence",
+      "context_tag_as_evidence",
+      "docs_adr_0002_tag_as_evidence_over_hard_block_decision",
+      "docs_adr_0002_tag_as_evidence_over_hard_block_document",
+      "docs_adr_0002_tag_as_evidence_over_hard_block_hard_block",
+      "docs_adr_0002_tag_as_evidence_over_hard_block_threat_intelligence",
+      "intent_research_pre_validate_false_positive_dilemma",
+      "specs_guardrail_malware_agent_spec_is_promptware_heuristic"
+    ],
+    "7": [
+      "issues_issue_2026_09_18_review_intent_specs_f01",
+      "issues_issue_2026_09_18_review_intent_specs_f03",
+      "issues_issue_2026_09_18_review_intent_specs_f07",
+      "issues_issue_2026_09_18_review_intent_specs_msrc_spotlighting_blog",
+      "issues_issue_2026_09_18_review_intent_specs_not_detected_not_safe",
+      "specs_guardrail_malware_agent_spec_decision_policy_matrix",
+      "specs_guardrail_malware_agent_spec_microsoft_spotlighting",
+      "specs_guardrail_malware_agent_spec_quarantined_evidence_schema"
+    ],
+    "8": [
+      "links_garak",
+      "links_mitre_atlas",
+      "links_owasp_llm_top_10",
+      "links_pyrit"
+    ],
+    "9": [
+      "links_waxell_trusted_document_problem"
+    ]
+  },
+  "cohesion": {
+    "0": 0.11956521739130435,
+    "1": 0.1736842105263158,
+    "2": 0.16176470588235295,
+    "3": 0.21978021978021978,
+    "4": 0.2545454545454545,
+    "5": 0.2545454545454545,
+    "6": 0.3333333333333333,
+    "7": 0.25,
+    "8": 0.5,
+    "9": 1.0
+  },
+  "gods": [
+    {
+      "id": "intent_research_pre_validate_document",
+      "label": "Nghiên cứu kiến trúc Guardrail đa tầng chống Indirect Prompt Injection",
+      "degree": 17
+    },
+    {
+      "id": "specs_guardrail_malware_agent_spec_security_standards_mapping",
+      "label": "Security Standards Mapping Matrix (ATLAS 2026.09 / OWASP 2025)",
+      "degree": 14
+    },
+    {
+      "id": "context_capev2_sandbox",
+      "label": "CAPEv2 Sandbox",
+      "degree": 13
+    },
+    {
+      "id": "links_end_to_end_guardrail_pipeline",
+      "label": "End-to-End Static & Dynamic Guardrail Pipeline",
+      "degree": 12
+    },
+    {
+      "id": "context_mandiant_capa",
+      "label": "Mandiant CAPA",
+      "degree": 10
+    },
+    {
+      "id": "specs_guardrail_malware_agent_spec_prompt_guard_86m",
+      "label": "Lớp 3 — Meta Prompt Guard-86M",
+      "degree": 10
+    },
+    {
+      "id": "context_promptware",
+      "label": "Promptware",
+      "degree": 9
+    },
+    {
+      "id": "docs_adr_0002_tag_as_evidence_over_hard_block_decision",
+      "label": "Quyết định ưu tiên Tag-as-Evidence khi phát hiện Promptware",
+      "degree": 9
+    },
+    {
+      "id": "specs_guardrail_malware_agent_spec_document",
+      "label": "SPEC-SEC-AI-2026-01 — Đặc tả Guardrail đa tầng v1.1.0",
+      "degree": 9
+    },
+    {
+      "id": "docs_adr_0003_passive_consumer_agent_decision",
+      "label": "Quyết định: Agent là Passive Consumer, không điều khiển Sandbox",
+      "degree": 8
+    }
+  ],
+  "surprises": [
+    {
+      "source": "Nguyên tắc: Không phát hiện không đồng nghĩa an toàn",
+      "target": "Indirect Prompt Injection (IPI)",
+      "source_files": [
+        "issues/issue_2026-09-18_review_intent_specs.md",
+        "CONTEXT.md"
+      ],
+      "confidence": "AMBIGUOUS",
+      "relation": "conceptually_related_to",
+      "why": "ambiguous connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `Nguyên tắc: Không phát hiện không đồng nghĩa an toàn` unexpectedly reaches hub `Indirect Prompt Injection (IPI)`"
+    },
+    {
+      "source": "Quarantined Evidence Schema v1.1",
+      "target": "Quarantined Evidence",
+      "source_files": [
+        "specs/guardrail_malware_agent_spec.md",
+        "CONTEXT.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "Neurosymbolic Defense-in-Depth Pipeline",
+      "target": "Malware Analysis Agent Guardrail",
+      "source_files": [
+        "specs/guardrail_malware_agent_spec.md",
+        "CONTEXT.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "MCP (Model Context Protocol) — phương án bị loại",
+      "target": "CAPEv2 Sandbox",
+      "source_files": [
+        "docs/adr/0003-passive-consumer-agent.md",
+        "CONTEXT.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "conceptually_related_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; bridges separate communities; peripheral node `MCP (Model Context Protocol) — phương án bị loại` unexpectedly reaches hub `CAPEv2 Sandbox`"
+    },
+    {
+      "source": "Lớp 5 — Runtime Execution Rails & Output Governance",
+      "target": "Execution Rails",
+      "source_files": [
+        "specs/guardrail_malware_agent_spec.md",
+        "CONTEXT.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories; semantically similar concepts with no structural link"
+    }
+  ]
+}

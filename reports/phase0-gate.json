@@ -1,0 +1,85 @@
+{
+  "id": "phase0-gate",
+  "version": 2,
+  "date": "2026-09-19",
+  "scope": "T00 Phase 0 Gate mở Phase 2: audit v1 (spec v1.3.0) → fix D01–D18 → re-audit v2 (spec v1.4.0). Read-only trong mọi vòng kiểm; fix do owner áp giữa hai vòng.",
+  "snapshot": {
+    "spec": "specs/guardrail_malware_agent_spec.md — v1.4.0, 737 dòng; sha256 a1e3d2674cff54cd22ca643baa5b606bf5abb9343e9f26b6073cb4c3fbd86465 (sau khi viết lại câu §7 theo điều kiện #2 của GateKeeper4; thay đổi so với snapshot kiểm chỉ là câu tuyên bố)",
+    "issue": "issues/issue_2026-09-19_unresolved_spec_review.md — checklist §6 đã tick theo bằng chứng; xem §7 của issue",
+    "fixture": "tests/fixtures/cape_report_sample_harmless.json — sha256 7b922e9676300acae838339110e6d3874896c65b406cc8cdc0f02da63f3b2dd8 (synthetic; hash mẫu là placeholder)",
+    "pin": "reports/integration-pin.json — YARA v4.5.8 (84b0e3cc…aee8), CAPEv2 ebf1b1df…4d68, Prompt-Guard-86M 1209add6…7b03 (đối chiếu nguồn primary)",
+    "atlas": "ATLAS-2026.09.yaml (fetch trực tiếp; version 2026.09, modified-date 2026-09-15)"
+  },
+  "gate": "PASS",
+  "gate_reason": "8/8 tiêu chí R01–R08 CLOSED theo tái kiểm tra v2 độc lập (4 re-auditor + supervisor GateKeeper3 + verifier GateKeeper4). Phase 2 được phép khởi động.",
+  "gate_history": [
+    {
+      "version": 1,
+      "result": "BLOCK",
+      "reason": "8/8 R-item PARTIAL trên spec v1.3.0",
+      "executors": ["T00Policy2", "T00Trust2", "T00Integrate2", "T00Eval2"],
+      "supervisor": "GateKeeper2",
+      "note": "Lần chạy đầu (T00Policy…T00Eval) bị hủy để đổi model; kết quả T00Policy đời đầu không dùng vì line number sai lệch."
+    },
+    {
+      "version": 2,
+      "result": "PASS",
+      "reason": "8/8 CLOSED sau fix D01–D18 trên spec v1.4.0",
+      "executors": ["RA1Policy", "RA2Trust", "RA3Integrate", "RA4Eval"],
+      "supervisors": ["GateKeeper3", "GateKeeper4"]
+    }
+  ],
+  "verdicts_v1": [
+    {"id": "R01", "verdict": "PARTIAL", "summary": "Ma trận 9 hàng + Preservation Rule + mapping tồn tại, nhưng còn mâu thuẫn: Preservation Rule (hàng 4/7) vs mapping PIPELINE_ABSTENTION; HARD_BLOCK thiếu trong enum pipeline_action; ALLOW là giá trị chết; §5:539 lệch mapping §3.5.1; thiếu quy tắc tổng hợp detector; thiếu trường validation error; thiếu property flags."},
+    {"id": "R02", "verdict": "PARTIAL", "summary": "Ingress cho tool-returned data đạt; còn spec:104 'tách biệt tuyệt đối', ADR-0003:7 'triệt tiêu hoàn toàn', lệch tag ADR-0002 vs spec."},
+    {"id": "R03", "verdict": "PARTIAL", "summary": "Cạnh adapter→normalization có; provenance memory chỉ danh nghĩa (không producer/locator format/identity); xung đột vị trí adapter; 'Kênh Text Scanner' không định nghĩa."},
+    {"id": "R04", "verdict": "PARTIAL", "summary": "Version floor; 'JSON report format v2' không định nghĩa; 'Đã xác nhận tương thích' không kèm artifact; cơ chế nạp report không có trong spec."},
+    {"id": "R05", "verdict": "PARTIAL", "summary": "3 tên ATLAS trong links.md lệch snapshot 2026.09; taxonomy observed/attempted/executed không tồn tại."},
+    {"id": "R06", "verdict": "PARTIAL", "summary": "Thiếu bảng Nhóm 1–4, GT_Injection/GT_Malware_Behavior, S_clean; AS modes chỉ định tính."},
+    {"id": "R07", "verdict": "PARTIAL", "summary": "transform_chain mất khi đệ quy; no-mapping bất khả biểu diễn; evidence_id ở report không pattern/không kiểm tồn tại."},
+    {"id": "R08", "verdict": "PARTIAL", "summary": "Latency không chốt percentile/C; Raw Pipeline không định nghĩa; de-obfuscation không công thức/denominator/GT; N_abstained/N_total_processed không định nghĩa."}
+  ],
+  "verdicts_v2": [
+    {"id": "R01", "verdict": "CLOSED", "evidence": ["spec §3.5.1 ma trận + Preservation Rule + mapping (dòng 313–343)", "enum pipeline_action có HARD_BLOCK (dòng 471)", "quy tắc tổng hợp detector §3.5.1.1 (338–343)", "status_flags trong §4.1/§4.2 (tuỳ hành, có tuyên bố)", "bản ghi Lớp 5 biểu diễn được: provenance.type + detection_source + detector_name enum mở (410/420/429), ví dụ §4.3"]},
+    {"id": "R02", "verdict": "CLOSED", "evidence": ["spec:106 'tách biệt cấu trúc (rủi ro ngữ nghĩa tồn dư)'", "norm residual risk §1.1 (20–23)", "ingress tool-returned data (370)", "ADR-0002 tag khớp §3.5.2; ADR-0003 hết mâu thuẫn AS_tool; escaping được định nghĩa (346)", "intent v1.2.1 có cờ untrusted + Ingress"]},
+    {"id": "R03", "verdict": "CLOSED", "evidence": ["§2 quy ước 5 loại provenance (58) + if/then parent_artifact_sha256/locator pattern cho VIRTUAL_ADDRESS (415–416)", "adapter 'trước Lớp 0' ở note §3.2 (211) và thân §3.2.2 (254)", "thuật ngữ 'YARA Text Scanner' đã bị loại khỏi §5"], "scope_note": "Bằng chứng runtime cho nhánh memory hoãn có tuyên bố sang Phase 2 với dump PE-sieve (spec §3.2.2 note, dòng 293)."},
+    {"id": "R04", "verdict": "CLOSED", "evidence": ["reports/integration-pin.json — 6/6 giá trị khớp nguồn primary (YARA v4.5.8 + commit, CAPEv2 commit, HF revision)", "fixture có fixture_metadata (synthetic) + hash placeholder nhất quán; pin trùng sha256 thật của fixture", "nhãn 'Verified Test Fixture' đã hạ (spec:10); spec §3.2.2 trỏ pin file (239)", "cơ chế nạp report đúng: -x cuckoo=<file report JSON>, phân biệt --module-data (240)"]},
+    {"id": "R05", "verdict": "CLOSED", "evidence": ["links.md §6.2: 7/7 tên ATLAS khớp snapshot 2026.09 (đối chiếu primary)", "taxonomy observed/attempted/executed (573–578)", "T1059.003 chỉ khi executed action (586); T1497 có điều kiện", "rule tham chiếu version đồng bộ 1.4.0 (223)"]},
+    {"id": "R06", "verdict": "CLOSED", "evidence": ["bảng Nhóm 1–4 + GT_Injection/GT_Malware_Behavior (654–665)", "phân bổ 200 pair + định nghĩa S_clean (nền mã độc không đồng nghĩa lành tính)", "metric theo nhóm khớp công thức §6.6 và bảng §6.7", "AS đo đúng nhóm (632)"]},
+    {"id": "R07", "verdict": "CLOSED", "evidence": ["transform_chain tích lũy xuyên đệ quy + budget theo byte UTF-8 (§3.1)", "no-mapping sentinel + if/then bắt buộc no_mapping_reason và technique_name sentinel (450–451)", "evidence_id pattern ở cả 2 schema (404, 554) + bước kiểm tồn tại khi assemble (373)", "ví dụ valid/invalid §4.3"]},
+    {"id": "R08", "verdict": "CLOSED", "evidence": ["p95 @ C=1 trong danh sách phân vị báo cáo; Raw Pipeline = Baseline 0 được định nghĩa (638)", "công thức De-obfuscation + N_encoded/N_decoded (705–711)", "N_abstained/N_total_processed + N_valid_schema/N_total_non_abstained định nghĩa (709–710)", "metric báo cáo trên Test split (660); luật mẫu số 0 = N/A (711); abstention đo riêng"]}
+  ],
+  "decisions_resolution": [
+    {"id": "D01", "resolution": "§5 hàng System Prompt Extraction → cặp TAG_AS_EVIDENCE/TAG_AS_EVIDENCE + footnote Canary Token Verifier (phạm vi so khớp, tước nội dung rò rỉ, không phát hành output chứa canary)."},
+    {"id": "D02", "resolution": "Thêm HARD_BLOCK vào enum pipeline_action §4.1 + ghi chú dispatcher ghim detection_source/detector_name cho bản ghi HARD_BLOCK."},
+    {"id": "D03", "resolution": "Xóa ALLOW khỏi enum pipeline_action; nhánh không phát hành bản ghi giữ nguyên trong mapping."},
+    {"id": "D04", "resolution": "Mapping PIPELINE_ABSTENTION bổ sung điều khoản phát TAG_AS_EVIDENCE cho positive finding trước lỗi (Preservation Rule)."},
+    {"id": "D05", "resolution": "Thêm §3.5.1.1 (DETECTED/NOT_DETECTED/INCONCLUSIVE, detector bắt buộc theo profile) + status_flags ở cả 2 schema (tuỳ hành)."},
+    {"id": "D06", "resolution": "threat_score/confidence nullable khi ABSTAINED_PARTIAL (không mang nghĩa BENIGN) + abstention_metadata (reason, validation_errors)."},
+    {"id": "D07", "resolution": "Sentinel 'No direct mapping' + if/then: bắt buộc no_mapping_reason; technique_name phải khớp sentinel; OWASP no-mapping ghi lý do trong interpretation_summary."},
+    {"id": "D08", "resolution": "evidence_id pattern trong report + bước kiểm tham chiếu tồn tại (Re-ask → Fallback Abstention)."},
+    {"id": "D09", "resolution": "Bảng nhóm chuẩn hoá vào spec §6.1 (100 × 4, 2 cột GT, phân bổ 100+100 pair, định nghĩa S_clean); artifact HTML designs/ giữ ngoài nguồn chuẩn."},
+    {"id": "D10", "resolution": "Target ≤15s = p95 latency overhead tại C=1; Raw Pipeline = Baseline 0; báo cáo p50/p90/p95/p99."},
+    {"id": "D11", "resolution": "Công thức De-obfuscation Success = N_decoded/N_encoded với định nghĩa tập encoded và tiêu chí decoded."},
+    {"id": "D12", "resolution": "Định nghĩa N_abstained/N_total_processed (gồm PIPELINE_ABSTENTION + ABSTAINED_PARTIAL) + N_valid_schema/N_total_non_abstained; metric báo cáo trên Test split."},
+    {"id": "D13", "resolution": "Ghim phiên bản tại reports/integration-pin.json (giá trị thật, khóa cứng tại T01); cơ chế nạp report chuẩn hóa; fixture metadata + hash placeholder; nhãn 'Verified' hạ xuống 'đối chiếu tĩnh'."},
+    {"id": "D14", "resolution": "Quy ước observed/attempted/executed vào §5 + áp cho CAPA-derived ATT&CK; T1059.003 chỉ khi executed action."},
+    {"id": "D15", "resolution": "Tag chuẩn <untrusted_malware_telemetry> (ADR-0002 cập nhật); spec:104 sửa thành 'tách biệt cấu trúc (rủi ro ngữ nghĩa tồn dư)'; ADR-0003 bỏ câu lặp + làm mềm."},
+    {"id": "D16", "resolution": "Adapter thuộc pha trích xuất (note §3.2 + thân §3.2.2); contract provenance memory (5 loại nguồn, parent hash, locator pattern); loại thuật ngữ 'YARA Text Scanner'."},
+    {"id": "D17", "resolution": "intent v1.2.1: cờ untrusted + Ingress Filtering trong diagram; paired with Spec v1.4.0."},
+    {"id": "D18", "resolution": "Issue 2026-09-19: header cập nhật theo v1.4.0 + tái kiểm; checklist §6 tick theo bằng chứng; thêm §7 lịch sử tái kiểm."}
+  ],
+  "verification": {
+    "audit_v1": {"executors": ["T00Policy2", "T00Trust2", "T00Integrate2", "T00Eval2"], "supervisor": "GateKeeper2 (đồng ý 4/4, 8/8 PARTIAL, BLOCK)"},
+    "re_audit_v2": {"executors": ["RA1Policy", "RA2Trust", "RA3Integrate", "RA4Eval"], "result": "R02/R06/R08 CLOSED; 5 gap hẹp còn lại (provenance Lớp 5, cuckoo mechanism, taxonomy CAPA, AS wording, p95)"},
+    "supervisors": ["GateKeeper3 — xác minh 4 báo cáo re-audit: 5/8 CLOSED, 3 PARTIAL hẹp, BLOCK + danh sách điều kiện PASS", "GateKeeper4 — xác minh sau fix cuối: 8/8 CLOSED, đủ điều kiện PASS (đã đối chiếu pin với nguồn primary 6/6)"],
+    "owner_checks": ["Parse 3 block JSON trong spec thành công sau mọi vòng sửa", "Fixture parse OK; sha256 trùng khớp pin", "ATLAS names đối chiếu snapshot primary", "spec sha256 068df04c… tại thời điểm PASS"],
+    "limits": ["Đọc tĩnh; không chạy JSON Schema validator/runtime; kết luận validate dựa trên required+enum+ví dụ §4.3", "Giá trị pin là ảnh chụp 2026-09-19; khóa cứng tại T01", "Fixture memory chưa có (hoãn có tuyên bố tới Phase 2) — nếu owner đòi artifact memory thật ở gate, R03 lật PARTIAL"]
+  },
+  "next_actions": [
+    "Dispatch Mục B–F theo implemention.md §7 khi có lệnh mở wave build",
+    "T01 khóa cứng pin môi trường theo reports/integration-pin.json",
+    "Giữ fixture sha256 + spec hash trong issue/report khi chỉnh sửa tài liệu"
+  ],
+  "phase2_status": "UNBLOCKED — gate PASS (2026-09-19); build wave chờ lệnh."
+}

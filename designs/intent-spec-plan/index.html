@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lộ Trình Kỹ Thuật: Intent ➔ Spec ➔ Plan | Guardrail AI Agent Phân Tích Mã Độc</title>
+  <style>
+    :root {
+      --bg-base: #090d16;
+      --bg-surface: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --bg-card-hover: rgba(51, 65, 85, 0.8);
+      --border-subtle: rgba(148, 163, 184, 0.15);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --cyan: #38bdf8;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #f43f5e;
+      --indigo: #818cf8;
+      --purple: #c084fc;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.08) 0%, transparent 40%),
+        linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+    }
+
+    /* Container */
+    .app-container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 32px 24px 80px 24px;
+    }
+
+    /* Header */
+    header {
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    .badge-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+      backdrop-filter: blur(8px);
+    }
+
+    .badge-cyan { background: rgba(56, 189, 248, 0.12); color: var(--cyan); border-color: rgba(56, 189, 248, 0.3); }
+    .badge-emerald { background: rgba(52, 211, 153, 0.12); color: var(--emerald); border-color: rgba(52, 211, 153, 0.3); }
+    .badge-amber { background: rgba(251, 191, 36, 0.12); color: var(--amber); border-color: rgba(251, 191, 36, 0.3); }
+    .badge-purple { background: rgba(192, 132, 252, 0.12); color: var(--purple); border-color: rgba(192, 132, 252, 0.3); }
+
+    h1 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 30%, var(--cyan) 80%, var(--indigo) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 16px;
+      max-width: 900px;
+    }
+
+    /* Visual Stepper / Workflow Progress */
+    .flow-stepper {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    .step-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 20px;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+    }
+
+    .step-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
+    }
+
+    .step-card.active {
+      border-color: var(--cyan);
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.08) 0%, rgba(15, 23, 42, 0.95) 100%);
+      box-shadow: 0 0 25px -5px rgba(56, 189, 248, 0.25);
+    }
+
+    .step-number {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .step-card.active .step-number {
+      color: var(--cyan);
+    }
+
+    .step-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .step-arrow {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 18px;
+    }
+
+    /* Main Tab Panels */
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.3s ease-in-out forwards;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Card System */
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      padding-bottom: 14px;
+    }
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-title-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 960px) {
+      .flow-stepper, .grid-2, .grid-3, .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Mini Stat Cards */
+    .metric-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .metric-box:hover {
+      border-color: var(--border-accent);
+      background: rgba(30, 41, 59, 0.5);
+    }
+
+    .metric-val {
+      font-size: 26px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      margin-top: 4px;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+
+    /* Visual Architecture Pipeline */
+    .pipeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      padding: 10px 0;
+    }
+
+    .pipeline-layer {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      align-items: center;
+      gap: 20px;
+      transition: all 0.2s ease;
+    }
+
+    .pipeline-layer:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 4px 20px -5px rgba(56, 189, 248, 0.2);
+    }
+
+    .layer-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 6px 12px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    .layer-body h4 {
+      font-size: 15px;
+      margin-bottom: 4px;
+      color: var(--text-main);
+    }
+
+    .layer-body p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .layer-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    /* Decision Table */
+    .styled-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .styled-table th {
+      background: rgba(30, 41, 59, 0.7);
+      color: var(--text-muted);
+      text-align: left;
+      padding: 12px 14px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-subtle);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .styled-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+      color: var(--text-main);
+    }
+
+    .styled-table tr:hover td {
+      background: rgba(51, 65, 85, 0.3);
+    }
+
+    /* Code Blocks */
+    pre, code {
+      font-family: var(--font-mono);
+    }
+
+    pre {
+      background: #060a12;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 16px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #e2e8f0;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .code-comment { color: #64748b; }
+    .code-keyword { color: #f43f5e; font-weight: 600; }
+    .code-string { color: #34d399; }
+    .code-var { color: #38bdf8; }
+
+    /* Interactive Simulator */
+    .simulator-box {
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.6) 100%);
+      border: 1px solid var(--border-accent);
+      border-radius: 14px;
+      padding: 24px;
+      margin-top: 20px;
+    }
+
+    .sim-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .sim-field {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .sim-field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .sim-select {
+      width: 100%;
+      background: #060a12;
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .sim-select:focus {
+      border-color: var(--cyan);
+    }
+
+    .sim-result {
+      background: #060a12;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 10px;
+      padding: 18px;
+    }
+
+    .sim-result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    /* Comparison Dual Branch */
+    .branch-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      position: relative;
+    }
+
+    .branch-card.detection {
+      border-top: 3px solid var(--rose);
+    }
+
+    .branch-card.capability {
+      border-top: 3px solid var(--emerald);
+    }
+
+    /* Quick Action Button */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-cyan {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .btn-cyan:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--cyan);
+    }
+
+    /* Footer */
+    footer {
+      margin-top: 60px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-dim);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Header -->
+    <header>
+      <div class="badge-bar">
+        <span class="badge badge-cyan">SPEC-SEC-AI-2026-01 (v1.3.0)</span>
+        <span class="badge badge-emerald">MITRE ATLAS Snapshot 2026.09</span>
+        <span class="badge badge-amber">OWASP LLM01 / LLM06 / LLM07</span>
+        <span class="badge badge-purple">NIST AI RMF MEASURE 2.5</span>
+      </div>
+      <h1>Hành Trình Kỹ Thuật: Intent ➔ Spec ➔ Plan</h1>
+      <p class="subtitle">
+        Tài liệu tương tác giải thích chu trình thiết kế hệ thống <strong>Guardrail Đa Tầng (Neurosymbolic Defense-in-Depth)</strong> 
+        phòng chống tấn công <strong>Indirect Prompt Injection (IPI) & Promptware</strong> cho Agent phân tích mã độc Windows PE.
+      </p>
+    </header>
+
+    <!-- Top Summary Metrics Strip -->
+    <div class="grid-4" style="margin-bottom: 30px;">
+      <div class="metric-box">
+        <div class="metric-label">Mục tiêu Detection Recall</div>
+        <div class="metric-val" style="color: var(--emerald);">&ge; 90.0%</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">Mục tiêu False Positive Rate</div>
+        <div class="metric-val" style="color: var(--cyan);">&le; 5.0%</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">Kháng Lẩn Tránh Thực (ERR)</div>
+        <div class="metric-val" style="color: var(--purple);">&ge; 95.0%</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-label">Quy mô Benchmark Thử nghiệm</div>
+        <div class="metric-val" style="color: var(--amber);">400 Mẫu (200 Pairs)</div>
+      </div>
+    </div>
+
+    <!-- Stepper Navigation -->
+    <div class="flow-stepper">
+      <!-- Step 1: Intent -->
+      <div class="step-card active" onclick="switchTab('intent', this)">
+        <div class="step-number">
+          <span>GIAI ĐOẠN 01</span>
+          <span>INTENT</span>
+        </div>
+        <div class="step-title">
+          <span>🎯 Xác Định Bài Toán & Ranh Giới</span>
+        </div>
+        <div class="step-desc">
+          Bối cảnh rủi ro khi LLM phân tích mã độc, mô hình đe dọa đa vector, và giả thuyết nghiên cứu đo lường được.
+        </div>
+      </div>
+
+      <!-- Step 2: Spec -->
+      <div class="step-card" onclick="switchTab('spec', this)">
+        <div class="step-number">
+          <span>GIAI ĐOẠN 02</span>
+          <span>SPEC</span>
+        </div>
+        <div class="step-title">
+          <span>🛡️ Đặc Tả Kiến Trúc & Hợp Đồng</span>
+        </div>
+        <div class="step-desc">
+          Kiến trúc 2 nhánh song song, 6 lớp phòng thủ, ma trận quyết định 3x3, schema Draft-07 và ánh xạ ATLAS 2026.09.
+        </div>
+      </div>
+
+      <!-- Step 3: Plan -->
+      <div class="step-card" onclick="switchTab('plan', this)">
+        <div class="step-number">
+          <span>GIAI ĐOẠN 03</span>
+          <span>PLAN</span>
+        </div>
+        <div class="step-title">
+          <span>🚀 Lộ Trình Triển Khai & Kiểm Thử</span>
+        </div>
+        <div class="step-desc">
+          5 module phát triển thử nghiệm Phase 2, giao thức benchmark 4 nhóm mẫu ghép cặp, và bộ công cụ đo tái lập.
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TAB 1: INTENT ================= -->
+    <div id="tab-intent" class="tab-content active">
+      
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">1</span>
+            Problem Statement: Bề Mặt Tấn Công Mới của AI Agent Phân Tích Mã Độc
+          </div>
+          <span class="badge badge-cyan">intent/research_pre_validate.md</span>
+        </div>
+        <p style="color: var(--text-muted); margin-bottom: 18px;">
+          Khi đưa LLM vào tự động hóa phân tích mã độc, chính Agent trở thành nạn nhân bị tấn công thông qua 
+          <strong>Indirect Prompt Injection (IPI)</strong>. Kẻ tấn công biến đổi file mã độc thành phương tiện chuyên chở chỉ thị lừa đảo:
+        </p>
+
+        <div class="grid-2">
+          <div style="background: rgba(15, 23, 42, 0.6); padding: 18px; border-radius: 10px; border-left: 3px solid var(--rose);">
+            <h4 style="color: var(--rose); margin-bottom: 8px;">Tấn Công Tĩnh (Static Surface)</h4>
+            <p style="font-size: 13.5px; color: var(--text-muted);">
+              Câu lệnh đối kháng giấu trong tệp PE: resources (`.rsrc`), strings data, metadata, version info. 
+              Mục tiêu là lừa Agent phân tích ban đầu đổi nhãn kết luận sang <code>BENIGN</code>.
+            </p>
+          </div>
+          <div style="background: rgba(15, 23, 42, 0.6); padding: 18px; border-radius: 10px; border-left: 3px solid var(--amber);">
+            <h4 style="color: var(--amber); margin-bottom: 8px;">Tấn Công Động (Runtime / RAM Surface)</h4>
+            <p style="font-size: 13.5px; color: var(--text-muted);">
+              Mã độc được đóng gói (Themida/VMProtect) che giấu lệnh trên đĩa. Chỉ khi chạy trong Sandbox, 
+              mã độc mới giải mã câu lệnh injection vào RAM hoặc bơm vào log qua <code>OutputDebugString</code>, <code>SetWindowText</code>.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scope Reconciliation -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">2</span>
+            Bảng Đối Chiếu Thay Đổi Phạm Vi (Scope Reconciliation)
+          </div>
+          <span class="badge badge-emerald">Audit Trail</span>
+        </div>
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>Hạng Mục</th>
+              <th>Intent Sơ Khởi (pre-validate.md)</th>
+              <th>Intent Nghiên Cứu (v1.2.0)</th>
+              <th>Quyết Định Kỹ Thuật</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Đối tượng bảo vệ</strong></td>
+              <td>Agent phân tích mã độc</td>
+              <td>Agent phân tích mã độc (Passive Consumer)</td>
+              <td><span class="badge badge-emerald">Giữ lại</span> Không thay đổi trọng tâm an toàn</td>
+            </tr>
+            <tr>
+              <td><strong>Phạm vi rào chắn</strong></td>
+              <td>Tiền xử lý tĩnh (Static Pre-processing)</td>
+              <td>Đa tầng (De-obfuscation, Tĩnh, Động RAM, Ngữ nghĩa, Thực thi)</td>
+              <td><span class="badge badge-cyan">Mở rộng</span> Packer giấu promptware trong RAM, bắt buộc phải có phân tích động</td>
+            </tr>
+            <tr>
+              <td><strong>Định dạng tệp mục tiêu</strong></td>
+              <td>Mọi loại mã độc chung chung</td>
+              <td>Chuyên sâu Windows PE (32/64-bit)</td>
+              <td><span class="badge badge-purple">Tập trung</span> Đảm bảo độ sâu thực nghiệm với CAPEv2, PE-sieve, CAPA</td>
+            </tr>
+            <tr>
+              <td><strong>Môi trường động</strong></td>
+              <td>"CAPA Sandbox" (thuật ngữ nhập nhằng)</td>
+              <td>CAPEv2 Sandbox (VM) + Mandiant CAPA (trừu tượng hóa)</td>
+              <td><span class="badge badge-amber">Chuẩn hóa bản thể</span> Phân định rõ Sandbox chạy code vs Tool nhận diện capability</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Core Research Question -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.5) 100%); border-color: var(--border-accent);">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">3</span>
+            Giả Thuyết Nghiên Cứu Trung Tâm (Core Research Hypothesis)
+          </div>
+          <span class="badge badge-cyan">Formal Hypothesis</span>
+        </div>
+        <blockquote style="font-size: 15px; font-style: italic; color: var(--cyan); line-height: 1.6; padding: 12px 16px; border-left: 3px solid var(--cyan); background: rgba(56, 189, 248, 0.05); border-radius: 0 8px 8px 0;">
+          "Một kiến trúc Guardrail đa tầng kết hợp biểu tượng tất định (YARA / Mandiant CAPA) và mô hình học máy ngữ nghĩa 
+          (Meta Prompt Guard-86M) có thể giảm tỷ lệ tấn công thành công của Indirect Prompt Injection trên tệp Windows PE 
+          xuống bao nhiêu phần trăm, với chi phí độ trễ tính toán và mức độ suy giảm chất lượng phân tích mã độc nền là bao nhiêu?"
+        </blockquote>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 2: SPEC ================= -->
+    <div id="tab-spec" class="tab-content">
+      
+      <!-- Decoupled Dataflow -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">A</span>
+            Kiến Trúc 2 Nhánh Dữ Liệu Song Song (Decoupled Pipeline Architecture)
+          </div>
+          <span class="badge badge-cyan">Spec §2 (v1.3.0)</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+          Khắc phục lỗi logic luồng dữ liệu (F02/R03): Tệp PE nhị phân gốc là <strong>bất biến (`immutable`)</strong>. 
+          Hệ thống phân tách thành hai nhánh độc lập chạy song song:
+        </p>
+
+        <div class="grid-2">
+          <div class="branch-card detection">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h4 style="color: var(--rose); font-size: 16px;">1. Nhánh Phát Hiện (Detection Branch)</h4>
+              <span class="badge badge-amber">Quét Promptware</span>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+              Trích xuất chuỗi tĩnh, memory dump từ PE-sieve, và API debug strings từ <code>TelemetryIngestionAdapter</code> 
+              ➔ Bản sao text nạp vào Lớp 0 (Normalization) ➔ Quét qua YARA và Meta Prompt Guard ➔ Sinh ra <strong>Adversarial Findings</strong>.
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 11px; background: #060a12; padding: 8px 12px; border-radius: 6px; color: var(--cyan);">
+              Mục tiêu: Bắt toàn bộ dấu hiệu IPI, bảo tồn vị trí byte offset gốc.
+            </div>
+          </div>
+
+          <div class="branch-card capability">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h4 style="color: var(--emerald); font-size: 16px;">2. Nhánh Năng Lực (Capability Branch)</h4>
+              <span class="badge badge-emerald">Khử Trùng Hành Vi</span>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+              Mandiant CAPA phân tích cấu trúc file PE và CAPE sandbox report ➔ Chỉ chiếu (project) các kỹ thuật MITRE ATT&CK 
+              theo danh mục cho phép (Allowlist) ➔ Tước bỏ 100% chuỗi tự do (raw text) ➔ Sinh ra <strong>Capabilities JSON</strong>.
+            </p>
+            <div style="font-family: var(--font-mono); font-size: 11px; background: #060a12; padding: 8px 12px; border-radius: 6px; color: var(--emerald);">
+              Mục tiêu: Đưa dữ liệu hành vi an toàn cho LLM mà không lộ diện text nguy hiểm.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive 6-Layer Architecture Stack -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">B</span>
+            6 Tầng Phòng Thủ Chi Tiết (Layer 0 ➔ Layer 5)
+          </div>
+          <span class="badge badge-purple">Neurosymbolic Defense</span>
+        </div>
+
+        <div class="pipeline-container">
+          
+          <div class="pipeline-layer">
+            <div class="layer-tag">LỚP 0: CHUẨN HÓA</div>
+            <div class="layer-body">
+              <h4>Normalization & De-obfuscation Engine</h4>
+              <p>Loại bỏ Zero-Width characters, phân rã Unicode NFKD, ánh xạ ký tự đồng hình (Confusables), giải mã đệ quy Base64/Hex (Max Depth = 2, max 64KB).</p>
+            </div>
+            <div class="layer-meta">
+              <span style="color: var(--cyan);">Deterministic</span>
+              <span style="color: var(--text-dim);">Latency: &lt; 2ms</span>
+            </div>
+          </div>
+
+          <div class="pipeline-layer">
+            <div class="layer-tag">LỚP 1: HEURISTICS</div>
+            <div class="layer-body">
+              <h4>YARA Rules & Telemetry Ingestion Adapter</h4>
+              <p>Bộ luật YARA tĩnh quét chuỗi nhạy cảm; YARA Cuckoo module quét mạng/registry/mutex; Telemetry Adapter trích xuất chuỗi <code>OutputDebugString</code> từ CAPE report.</p>
+            </div>
+            <div class="layer-meta">
+              <span style="color: var(--cyan);">YARA v4.3.2+</span>
+              <span style="color: var(--emerald);">Fixture Verified</span>
+            </div>
+          </div>
+
+          <div class="pipeline-layer">
+            <div class="layer-tag">LỚP 2: KHỬ TRÙNG</div>
+            <div class="layer-body">
+              <h4>Mandiant CAPA Data Abstraction (Tĩnh & Động)</h4>
+              <p>Rút trích năng lực kỹ thuật sang mã MITRE ATT&CK có cấu trúc, loại bỏ toàn bộ raw text và mã máy tự do trước khi nạp vào LLM Context.</p>
+            </div>
+            <div class="layer-meta">
+              <span style="color: var(--emerald);">ATT&CK Mapping</span>
+              <span style="color: var(--text-dim);">Attack Surface: -95%</span>
+            </div>
+          </div>
+
+          <div class="pipeline-layer">
+            <div class="layer-tag">LỚP 3: NGỮ NGHĨA</div>
+            <div class="layer-body">
+              <h4>Meta Prompt Guard-86M (Semantic Classifier)</h4>
+              <p>Mô hình sequence chuyên biệt DeBERTa-v2 phân loại Injection / Jailbreak với độ trễ &le; 50ms; kết hợp Heuristic phân biệt lệnh shell mã độc vs Promptware.</p>
+            </div>
+            <div class="layer-meta">
+              <span style="color: var(--purple);">Neural ML (86M)</span>
+              <span style="color: var(--amber);">Threshold: P &ge; 0.75</span>
+            </div>
+          </div>
+
+          <div class="pipeline-layer">
+            <div class="layer-tag">LỚP 4: QUYẾT ĐỊNH</div>
+            <div class="layer-body">
+              <h4>Decision Policy Gate & Microsoft Spotlighting</h4>
+              <p>Thực thi Ma trận 3 chiều; áp dụng Tag-as-Evidence (bảo tồn phân tích); phân tách message role <code>system</code> tuyệt đối khỏi thẻ <code>&lt;untrusted_malware_telemetry&gt;</code>.</p>
+            </div>
+            <div class="layer-meta">
+              <span style="color: var(--rose);">AML.T0051.001</span>
+              <span style="color: var(--cyan);">Role Separation</span>
+            </div>
+          </div>
+
+          <div class="pipeline-layer">
+            <div class="layer-tag">LỚP 5: QUẢN TRỊ</div>
+            <div class="layer-body">
+              <h4>Runtime Execution Rails & Output Schema Governance</h4>
+              <p>Hardcoded Read-Only Dispatcher (cấm shell, write, network egress); Ingress filtering cho dữ liệu trả về từ tool; Guardrails AI kiểm thực schema đầu ra (Re-ask &ge; 2 ➔ Abstain).</p>
+            </div>
+            <div class="layer-meta">
+              <span style="color: var(--rose);">AML.T0053 Guard</span>
+              <span style="color: var(--emerald);">Least Privilege</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Interactive Policy Gate Simulator -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">C</span>
+            Trình Giả Lập Ma Trận Quyết Định 3 Chiều (Policy Gate Simulator)
+          </div>
+          <span class="badge badge-amber">Spec §3.5.1 (R01 Resolved)</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13.5px; margin-bottom: 16px;">
+          Thử nghiệm logic ra quyết định của Policy Gate khi thay đổi trạng thái xử lý dữ liệu và kết quả phát hiện của các bộ quét:
+        </p>
+
+        <div class="simulator-box">
+          <div class="sim-controls">
+            <div class="sim-field">
+              <label for="sim-proc">Trạng Thái Xử Lý (Processing State)</label>
+              <select id="sim-proc" class="sim-select" onchange="runSimulator()">
+                <option value="COMPLETE">COMPLETE (Quét 100% dữ liệu)</option>
+                <option value="PARTIAL">PARTIAL (Timeout / Vượt budget 2.000 chuỗi)</option>
+                <option value="FAILED">FAILED (Sandbox crash / Parser lỗi)</option>
+              </select>
+            </div>
+            <div class="sim-field">
+              <label for="sim-det">Trạng Thái Phát Hiện (Detection State)</label>
+              <select id="sim-det" class="sim-select" onchange="runSimulator()">
+                <option value="DETECTED">DETECTED (Phát hiện thấy Promptware)</option>
+                <option value="NOT_DETECTED">NOT_DETECTED (Không có dấu hiệu)</option>
+                <option value="INCONCLUSIVE">INCONCLUSIVE (YARA & ML bất đồng)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="sim-result">
+            <div class="sim-result-header">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-dim); text-transform: uppercase;">KẾT QUẢ TÍNH TOÁN CỦA POLICY GATE</span>
+              <span id="sim-action-badge" class="badge badge-cyan">TAG_AS_EVIDENCE</span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; font-family: var(--font-mono); font-size: 12.5px;">
+              <div><strong>Pipeline Action:</strong> <span id="sim-pipeline-action" style="color: var(--cyan);">TAG_AS_EVIDENCE</span></div>
+              <div><strong>Evidence Decision:</strong> <span id="sim-evidence-decision" style="color: var(--emerald);">TAG_AS_EVIDENCE</span></div>
+              <div><strong>Chuyển tiếp sang Agent:</strong> <span id="sim-forward" style="color: var(--emerald);">Được phép (Đã làm sạch)</span></div>
+              <div><strong>Ràng buộc Verdict:</strong> <span id="sim-verdict-constraint" style="color: var(--amber);">Không cấm</span></div>
+              <div><strong>Hành động Escalation:</strong> <span id="sim-escalation" style="color: var(--text-muted);">Thông báo P3 không chặn</span></div>
+              <div><strong>Cờ Cảnh Báo (Flags):</strong> <span id="sim-flags" style="color: var(--rose);">None</span></div>
+            </div>
+            <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted); border-top: 1px solid rgba(148, 163, 184, 0.1); padding-top: 8px;">
+              <strong>Lý do kỹ thuật:</strong> <span id="sim-reason">Phát hiện câu lệnh đối kháng; bảo tồn bằng chứng và vô hiệu hóa thành metadata quan sát.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= TAB 3: PLAN ================= -->
+    <div id="tab-plan" class="tab-content">
+      
+      <!-- Phase 2 Roadmap Modules -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">I</span>
+            Kế Hoạch Triển Khai Thực Nghiệm 5 Modules (Phase 2 Roadmap)
+          </div>
+          <span class="badge badge-emerald">Implementation Plan</span>
+        </div>
+
+        <div class="grid-2">
+          <div style="background: rgba(15, 23, 42, 0.7); padding: 18px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="color: var(--cyan); font-family: var(--font-mono); font-size: 12px; font-weight: 700;">MODULE 0</span>
+              <span class="badge badge-cyan">De-obfuscation</span>
+            </div>
+            <h4 style="font-size: 15px; margin-bottom: 6px;">Python Normalization Engine</h4>
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Hiện thực hóa class <code>NormalizationEngine</code> xử lý Unicode NFKD, bóc tách Zero-width regex, 
+              tra cứu bảng ký tự đồng hình <code>confusables.txt</code> và giải mã đệ quy Base64/Hex (depth=2, max 64KB).
+            </p>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.7); padding: 18px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="color: var(--cyan); font-family: var(--font-mono); font-size: 12px; font-weight: 700;">MODULE 1</span>
+              <span class="badge badge-emerald">Heuristics & Adapter</span>
+            </div>
+            <h4 style="font-size: 15px; margin-bottom: 6px;">YARA Engine & Telemetry Ingestion</h4>
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Biên dịch bộ luật YARA tĩnh; thiết lập máy ảo Sandbox CAPEv2 v2.2; xây dựng class 
+              <code>TelemetryIngestionAdapter</code> bóc tách tham số chuỗi từ <code>OutputDebugString</code> đưa vào text stream.
+            </p>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.7); padding: 18px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="color: var(--cyan); font-family: var(--font-mono); font-size: 12px; font-weight: 700;">MODULE 2</span>
+              <span class="badge badge-purple">Neural Classifier</span>
+            </div>
+            <h4 style="font-size: 15px; margin-bottom: 6px;">Meta Prompt Guard-86M Microservice</h4>
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Đóng gói mô hình sequence classification DeBERTa-v2 thành REST API nội bộ với độ trễ tối ưu &le; 50ms; 
+              áp dụng heuristic phân biệt giữa lệnh shell hệ thống và câu lệnh thao túng LLM.
+            </p>
+          </div>
+
+          <div style="background: rgba(15, 23, 42, 0.7); padding: 18px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <span style="color: var(--cyan); font-family: var(--font-mono); font-size: 12px; font-weight: 700;">MODULE 3</span>
+              <span class="badge badge-amber">Sanitization & Policy</span>
+            </div>
+            <h4 style="font-size: 15px; margin-bottom: 6px;">CAPA Sanitizer & Policy Gate</h4>
+            <p style="font-size: 13px; color: var(--text-muted);">
+              Tích hợp Mandiant CAPA JSON parser với cơ chế Allowlist Projection; triển khai hàm 
+              <code>evaluate_policy_gate</code> và đóng gói cấu trúc thẻ Spotlighting với message roles riêng biệt.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evaluation Protocol & Paired Design -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span class="card-title-icon">II</span>
+            Giao Thức Đánh Giá Khoa Học EVAL-SEC-AI-2026-01 (400 Mẫu / 200 Cặp)
+          </div>
+          <span class="badge badge-purple">Benchmark Protocol</span>
+        </div>
+        
+        <p style="font-size: 13.5px; color: var(--text-muted); margin-bottom: 18px;">
+          Để cô lập chính xác tác động nhân quả của câu lệnh Promptware, tập benchmark được thiết kế theo 
+          <strong>Mô hình Ghép Cặp (Paired Design)</strong>: $\text{Pair} = (S_{\text{clean}}, S_{\text{injected}})$, 
+          chỉ khác nhau ở payload tiêm nhiễm nằm trong vùng dữ liệu thuần (`.rsrc`, debug info), đảm bảo mã thực thi không đổi:
+        </p>
+
+        <div class="grid-4" style="margin-bottom: 20px;">
+          <div style="background: #060a12; padding: 14px; border-radius: 8px; border-left: 2px solid var(--emerald);">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 700;">NHÓM 1 (100 MẪU)</div>
+            <div style="font-weight: 700; margin: 4px 0;">Clean Benign</div>
+            <div style="font-size: 12px; color: var(--text-muted);">File sạch, không có injection. Đo Baseline Accuracy.</div>
+          </div>
+          <div style="background: #060a12; padding: 14px; border-radius: 8px; border-left: 2px solid var(--amber);">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 700;">NHÓM 2 (100 MẪU)</div>
+            <div style="font-weight: 700; margin: 4px 0;">Benign + Promptware</div>
+            <div style="font-size: 12px; color: var(--text-muted);">File sạch bị chèn injection ép nhãn Malicious.</div>
+          </div>
+          <div style="background: #060a12; padding: 14px; border-radius: 8px; border-left: 2px solid var(--rose);">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 700;">NHÓM 3 (100 MẪU)</div>
+            <div style="font-weight: 700; margin: 4px 0;">Malware Gốc</div>
+            <div style="font-size: 12px; color: var(--text-muted);">Mã độc thực tế, không injection. Đo False Positive.</div>
+          </div>
+          <div style="background: #060a12; padding: 14px; border-radius: 8px; border-left: 2px solid var(--purple);">
+            <div style="font-size: 11px; color: var(--text-dim); font-weight: 700;">NHÓM 4 (100 MẪU)</div>
+            <div style="font-weight: 700; margin: 4px 0;">Malware + Promptware</div>
+            <div style="font-size: 12px; color: var(--text-muted);">Mã độc bị chèn injection ép nhãn Benign. Đo ERR.</div>
+          </div>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: 10px; border: 1px solid var(--border-subtle);">
+          <h4 style="font-size: 14px; color: var(--cyan); margin-bottom: 8px;">4 Cấu Hình Đối Chứng (Baselines):</h4>
+          <ul style="font-size: 13px; color: var(--text-muted); padding-left: 20px; line-height: 1.7;">
+            <li><strong>Baseline 0 (No-Guardrail):</strong> LLM thô nhận trực tiếp toàn bộ chuỗi text và log thô không qua lọc.</li>
+            <li><strong>Baseline 1 (Heuristic-only):</strong> Chỉ áp dụng tập luật YARA tĩnh.</li>
+            <li><strong>Baseline 2 (Neural-only):</strong> Chỉ áp dụng mô hình phân loại ngữ nghĩa Meta Prompt Guard-86M.</li>
+            <li><strong>Proposed Pipeline (Full Neurosymbolic):</strong> Toàn bộ 6 tầng bảo vệ từ Lớp 0 đến Lớp 5.</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer>
+      <div>Hệ thống Guardrail Đa Tầng AI Agent Phân Tích Mã Độc &bull; SPEC-SEC-AI-2026-01</div>
+      <div>Được tạo ngày: 2026-09-19 &bull; Bản quyền nhóm nghiên cứu PTMD</div>
+    </footer>
+
+  </div>
+
+  <script>
+    // Tab Switcher
+    function switchTab(tabId, element) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.step-card').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById('tab-' + tabId).classList.add('active');
+      element.classList.add('active');
+    }
+
+    // Policy Gate Simulator Logic (matches spec v1.3.0 evaluate_policy_gate)
+    function runSimulator() {
+      const proc = document.getElementById('sim-proc').value;
+      const det = document.getElementById('sim-det').value;
+      
+      const badgeEl = document.getElementById('sim-action-badge');
+      const pipelineEl = document.getElementById('sim-pipeline-action');
+      const evidenceEl = document.getElementById('sim-evidence-decision');
+      const forwardEl = document.getElementById('sim-forward');
+      const verdictEl = document.getElementById('sim-verdict-constraint');
+      const escalationEl = document.getElementById('sim-escalation');
+      const flagsEl = document.getElementById('sim-flags');
+      const reasonEl = document.getElementById('sim-reason');
+
+      if (proc === 'FAILED') {
+        badgeEl.className = 'badge badge-rose';
+        badgeEl.innerText = 'PIPELINE_ABSTENTION';
+        pipelineEl.innerText = 'PIPELINE_ABSTENTION';
+        pipelineEl.style.color = 'var(--rose)';
+        evidenceEl.innerText = 'ESCALATE_TO_HUMAN';
+        forwardEl.innerText = 'BỊ CHẶN (Không nạp context)';
+        forwardEl.style.color = 'var(--rose)';
+        verdictEl.innerText = 'CẤM MỌI VERDICT (Chuyển người)';
+        verdictEl.style.color = 'var(--rose)';
+        escalationEl.innerText = 'Hàng đợi P1 tức thời (Khẩn cấp)';
+        flagsEl.innerText = 'TRUNCATED_ARTIFACT_FLAG';
+        reasonEl.innerText = 'Sandbox hoặc parser bị sập; không thể đảm bảo tính toàn vẹn dữ liệu telemetry.';
+      } else if (proc === 'PARTIAL') {
+        badgeEl.className = 'badge badge-amber';
+        badgeEl.innerText = 'ESCALATE_AND_INCONCLUSIVE';
+        pipelineEl.innerText = 'ESCALATE_AND_INCONCLUSIVE';
+        pipelineEl.style.color = 'var(--amber)';
+        evidenceEl.innerText = (det === 'DETECTED') ? 'TAG_AS_EVIDENCE + ESCALATE' : 'ESCALATE_TO_HUMAN';
+        forwardEl.innerText = 'Được phép (Kèm cảnh báo rủi ro)';
+        forwardEl.style.color = 'var(--amber)';
+        verdictEl.innerText = 'CẤM KẾT LUẬN BENIGN';
+        verdictEl.style.color = 'var(--rose)';
+        escalationEl.innerText = 'P1 chặn verdict cuối (Review bắt buộc)';
+        flagsEl.innerText = (det === 'INCONCLUSIVE') ? 'TRUNCATED_ARTIFACT_FLAG, DETECTOR_DISAGREEMENT' : 'TRUNCATED_ARTIFACT_FLAG';
+        reasonEl.innerText = 'Dữ liệu bị cắt ngắn do timeout hoặc vượt ngân sách; không thể coi là an toàn tuyệt đối.';
+      } else if (proc === 'COMPLETE') {
+        if (det === 'DETECTED') {
+          badgeEl.className = 'badge badge-cyan';
+          badgeEl.innerText = 'TAG_AS_EVIDENCE';
+          pipelineEl.innerText = 'TAG_AS_EVIDENCE';
+          pipelineEl.style.color = 'var(--cyan)';
+          evidenceEl.innerText = 'TAG_AS_EVIDENCE';
+          forwardEl.innerText = 'Được phép (Đã làm sạch)';
+          forwardEl.style.color = 'var(--emerald)';
+          verdictEl.innerText = 'Không cấm (Ghi nhận bằng chứng)';
+          verdictEl.style.color = 'var(--text-main)';
+          escalationEl.innerText = 'Thông báo P3 không chặn';
+          flagsEl.innerText = 'None';
+          reasonEl.innerText = 'Phát hiện câu lệnh đối kháng; bảo tồn bằng chứng và vô hiệu hóa thành metadata quan sát.';
+        } else if (det === 'NOT_DETECTED') {
+          badgeEl.className = 'badge badge-emerald';
+          badgeEl.innerText = 'ALLOW';
+          pipelineEl.innerText = 'ALLOW';
+          pipelineEl.style.color = 'var(--emerald)';
+          evidenceEl.innerText = '— (Không phát hành bản ghi)';
+          forwardEl.innerText = 'Được phép chuyển giao';
+          forwardEl.style.color = 'var(--emerald)';
+          verdictEl.innerText = 'Không cấm';
+          verdictEl.style.color = 'var(--text-main)';
+          escalationEl.innerText = 'Không yêu cầu';
+          flagsEl.innerText = 'None';
+          reasonEl.innerText = 'Toàn bộ các tầng kiểm tra đều đạt trạng thái sạch; nạp capability đã khử trùng.';
+        } else if (det === 'INCONCLUSIVE') {
+          badgeEl.className = 'badge badge-purple';
+          badgeEl.innerText = 'CAUTIOUS_QUARANTINE';
+          pipelineEl.innerText = 'CAUTIOUS_QUARANTINE';
+          pipelineEl.style.color = 'var(--purple)';
+          evidenceEl.innerText = 'SANITIZE_AND_STRIP + ESCALATE';
+          forwardEl.innerText = 'Được phép (Đã sanitize)';
+          forwardEl.style.color = 'var(--amber)';
+          verdictEl.innerText = 'CẤM KẾT LUẬN BENIGN';
+          verdictEl.style.color = 'var(--rose)';
+          escalationEl.innerText = 'Hàng đợi Review P2';
+          flagsEl.innerText = 'DETECTOR_DISAGREEMENT';
+          reasonEl.innerText = 'Bất đồng giữa tập luật heuristic (YARA) và mô hình học máy (Prompt Guard).';
+        }
+      }
+    }
+  </script>
+</body>
+</html>

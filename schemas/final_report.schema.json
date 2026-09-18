@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MalwareAgentFinalReport",
+  "type": "object",
+  "required": [
+    "report_status",
+    "sample_metadata",
+    "threat_assessment",
+    "mitre_attack_capabilities",
+    "adversarial_evasion_findings",
+    "executive_summary",
+    "recommended_actions"
+  ],
+  "properties": {
+    "report_status": {
+      "type": "string",
+      "enum": [
+        "COMPLETE",
+        "ABSTAINED_PARTIAL"
+      ]
+    },
+    "sample_metadata": {
+      "type": "object",
+      "required": [
+        "sha256",
+        "file_type",
+        "packer_detected"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "file_type": {
+          "type": "string"
+        },
+        "packer_detected": {
+          "type": "string"
+        }
+      }
+    },
+    "threat_assessment": {
+      "type": "object",
+      "required": [
+        "verdict",
+        "threat_score",
+        "confidence"
+      ],
+      "properties": {
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "MALICIOUS",
+            "SUSPICIOUS",
+            "BENIGN",
+            "INCONCLUSIVE"
+          ]
+        },
+        "threat_score": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 10
+        },
+        "confidence": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0.0,
+          "maximum": 1.0
+        }
+      }
+    },
+    "abstention_metadata": {
+      "type": "object",
+      "required": [
+        "reason",
+        "validation_errors"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "validation_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "status_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "DETECTOR_DISAGREEMENT",
+          "TRUNCATED_ARTIFACT_FLAG"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "mitre_attack_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "tactic",
+          "technique_id",
+          "technique_name"
+        ],
+        "properties": {
+          "tactic": {
+            "type": "string"
+          },
+          "technique_id": {
+            "type": "string"
+          },
+          "technique_name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "adversarial_evasion_findings": {
+      "type": "object",
+      "required": [
+        "prompt_injection_detected",
+        "evasion_attempts"
+      ],
+      "properties": {
+        "prompt_injection_detected": {
+          "type": "boolean"
+        },
+        "evasion_attempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "evidence_id",
+              "atlas_techniques",
+              "summary"
+            ],
+            "properties": {
+              "evidence_id": {
+                "type": "string",
+                "pattern": "^EVD-[0-9]{4}-[0-9]{4,}$"
+              },
+              "atlas_techniques": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "summary": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "executive_summary": {
+      "type": "string"
+    },
+    "recommended_actions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

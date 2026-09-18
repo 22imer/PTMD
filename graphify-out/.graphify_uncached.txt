@@ -1,0 +1,8 @@
+/mnt/d/Năm 4/PTMD/CONTEXT.md
+/mnt/d/Năm 4/PTMD/docs/adr/0001-separate-capa-from-capev2.md
+/mnt/d/Năm 4/PTMD/docs/adr/0002-tag-as-evidence-over-hard-block.md
+/mnt/d/Năm 4/PTMD/docs/adr/0003-passive-consumer-agent.md
+/mnt/d/Năm 4/PTMD/intent/pre-validate.md
+/mnt/d/Năm 4/PTMD/intent/research_pre_validate.md
+/mnt/d/Năm 4/PTMD/issues/issue_2026-09-18_review_intent_specs.md
+/mnt/d/Năm 4/PTMD/specs/guardrail_malware_agent_spec.md

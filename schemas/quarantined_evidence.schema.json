@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QuarantinedAdversarialEvidence",
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "artifact_sha256",
+    "provenance",
+    "detection_source",
+    "detection_methods",
+    "transform_chain",
+    "mitre_atlas_mappings",
+    "owasp_llm_mapping",
+    "confidence_score",
+    "policy_decision",
+    "pipeline_action",
+    "interpretation_summary"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "pattern": "^EVD-[0-9]{4}-[0-9]{4,}$"
+    },
+    "artifact_sha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "type",
+        "locator"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "FILE_OFFSET",
+            "VIRTUAL_ADDRESS",
+            "JSON_LOG_POINTER",
+            "RUNTIME_TOOL_CALL",
+            "AGENT_OUTPUT"
+          ]
+        },
+        "locator": {
+          "type": "string"
+        },
+        "section_or_pid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent_artifact_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "const": "VIRTUAL_ADDRESS"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "parent_artifact_sha256"
+        ],
+        "properties": {
+          "locator": {
+            "pattern": "^0x[0-9a-fA-F]+$"
+          }
+        }
+      }
+    },
+    "detection_source": {
+      "type": "string",
+      "enum": [
+        "STATIC_STRING",
+        "DYNAMIC_MEMORY_DUMP",
+        "SANDBOX_API_LOG",
+        "SANDBOX_NETWORK_TRACE",
+        "RUNTIME_TOOL_CALL",
+        "AGENT_OUTPUT"
+      ]
+    },
+    "detection_methods": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "detector_name",
+          "rule_or_model_version",
+          "score"
+        ],
+        "properties": {
+          "detector_name": {
+            "type": "string",
+            "enum": [
+              "YARA_STATIC",
+              "YARA_CUCKOO",
+              "META_PROMPT_GUARD",
+              "TELEMETRY_ADAPTER",
+              "READ_ONLY_DISPATCHER",
+              "CANARY_VERIFIER"
+            ]
+          },
+          "rule_or_model_version": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        }
+      }
+    },
+    "transform_chain": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mitre_atlas_mappings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "technique_id",
+          "technique_name"
+        ],
+        "properties": {
+          "technique_id": {
+            "type": "string"
+          },
+          "technique_name": {
+            "type": "string"
+          },
+          "no_mapping_reason": {
+            "type": "string"
+          }
+        },
+        "if": {
+          "properties": {
+            "technique_id": {
+              "const": "No direct mapping"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "no_mapping_reason"
+          ],
+          "properties": {
+            "technique_name": {
+              "const": "No direct mapping"
+            }
+          }
+        }
+      }
+    },
+    "owasp_llm_mapping": {
+      "type": "string",
+      "enum": [
+        "LLM01:2025-PromptInjection",
+        "LLM06:2025-ExcessiveAgency",
+        "LLM07:2025-SystemPromptLeakage",
+        "No direct mapping"
+      ]
+    },
+    "confidence_score": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0
+    },
+    "policy_decision": {
+      "type": "string",
+      "enum": [
+        "TAG_AS_EVIDENCE",
+        "SANITIZE_AND_STRIP",
+        "HARD_BLOCK",
+        "ESCALATE_TO_HUMAN"
+      ]
+    },
+    "pipeline_action": {
+      "type": "string",
+      "enum": [
+        "TAG_AS_EVIDENCE",
+        "CAUTIOUS_QUARANTINE",
+        "ESCALATE_AND_INCONCLUSIVE",
+        "PIPELINE_ABSTENTION",
+        "HARD_BLOCK"
+      ]
+    },
+    "status_flags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "DETECTOR_DISAGREEMENT",
+          "TRUNCATED_ARTIFACT_FLAG"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "interpretation_summary": {
+      "type": "string"
+    }
+  }
+}

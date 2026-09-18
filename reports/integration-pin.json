@@ -1,0 +1,38 @@
+{
+  "id": "integration-pin",
+  "date": "2026-09-19",
+  "purpose": "Ghim phiên bản tích hợp YARA/CAPEv2/model theo R04 (spec §3.2.2). Giá trị tham chiếu tại thời điểm lập; khóa cứng build thực tế tại T01 khi dựng môi trường.",
+  "yara": {
+    "floor": ">=4.3.2 (spec §3.2.2)",
+    "build_flags": ["--enable-cuckoo"],
+    "reference_release": "v4.5.8",
+    "release_published": "2026-07-28T07:12:15Z",
+    "release_commit": "84b0e3cc0e42f8f8e6b84d19c97ec3ac6ff8aee8",
+    "source": "https://api.github.com/repos/VirusTotal/yara/releases/latest"
+  },
+  "capev2": {
+    "report_version": "v2.2 (JSON, fixture tests/fixtures/cape_report_sample_harmless.json)",
+    "note": "CAPEv2 không phát hành tag phiên bản — ghim theo commit.",
+    "reference_commit": "ebf1b1dfa5e24746799735ea7fcfaf2bff6b4d68",
+    "commit_date": "2026-09-16T11:40:06Z",
+    "source": "https://api.github.com/repos/kevoreilly/CAPEv2/commits?per_page=1"
+  },
+  "report_schema": {
+    "format": "CAPEv2 v2.2 JSON",
+    "min_fields": ["behavior.processes[].calls[].{api, arguments}", "network.{http, dns}"]
+  },
+  "prompt_guard": {
+    "model": "meta-llama/Prompt-Guard-86M",
+    "revision": "1209add6ca7d9c1d815171b8e5571587fe3e7b03",
+    "source": "https://huggingface.co/api/models/meta-llama/Prompt-Guard-86M"
+  },
+  "fixture": {
+    "path": "tests/fixtures/cape_report_sample_harmless.json",
+    "sha256": "7b922e9676300acae838339110e6d3874896c65b406cc8cdc0f02da63f3b2dd8",
+    "synthetic": true
+  },
+  "notes": [
+    "Cuckoo module yêu cầu build YARA kèm --enable-cuckoo; nạp report qua `-x cuckoo=<file report JSON>` (spec §3.2.2).",
+    "Giá trị release/commit trên là tham chiếu tại 2026-09-19; T01 khóa cứng theo môi trường dựng thật."
+  ]
+}
