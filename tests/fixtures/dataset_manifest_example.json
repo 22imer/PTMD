@@ -1,0 +1,187 @@
+{
+  "note": "Manifest ví dụ về HÌNH DẠNG (6 pair, tự khai example_only) — không phải dataset nghiệm thu: các phép kiểm quy mô (200 pair, 100 pair/nguồn, 100 thành viên/nhóm, 80/120 split) bị bỏ qua; phép kiểm từng pair/split/họ vẫn chạy.",
+  "schema_version": "1.0.0",
+  "example_only": true,
+  "pairs": [
+    {
+      "pair_id": "PAIR-000",
+      "origin": "benign",
+      "malware_family": null,
+      "payload_family": "Direct override",
+      "split": "calibration",
+      "source": "synthetic://t09-example",
+      "clean": {
+        "sample_id": "PAIR-000-CLEAN",
+        "sha256": "c627c8de95bc06d6f1beef7b520afccea3c56420ff703c657aed3dd87220a9bd",
+        "code_region_sha256": "d6a290a0ff663e4e689183bf81bdea80eaa8ef14a6a28400fd30e558f88a1848",
+        "group": 1,
+        "GT_Injection": false,
+        "GT_Malware_Behavior": "BENIGN",
+        "split": "calibration"
+      },
+      "injected": {
+        "sample_id": "PAIR-000-INJECTED",
+        "sha256": "0f639d50f4a4efc4321642f7adf8d9bf307679a8ba047732edb04f752387149e",
+        "code_region_sha256": "d6a290a0ff663e4e689183bf81bdea80eaa8ef14a6a28400fd30e558f88a1848",
+        "group": 2,
+        "GT_Injection": true,
+        "GT_Malware_Behavior": "BENIGN",
+        "split": "calibration"
+      },
+      "invariance": {
+        "jaccard": 0.95
+      }
+    },
+    {
+      "pair_id": "PAIR-001",
+      "origin": "malware",
+      "malware_family": "SmokeLoader",
+      "payload_family": "False benign claim",
+      "split": "calibration",
+      "source": "synthetic://t09-example",
+      "clean": {
+        "sample_id": "PAIR-001-CLEAN",
+        "sha256": "7d5af9c8582cc42c022d530fd0a29faa95bfc7ea168f8c7eefbae4090cc34615",
+        "code_region_sha256": "15f8da387ab4c0119fce31dc397bfa87192a676ce654d6b7fa395e29473a2ca8",
+        "group": 3,
+        "GT_Injection": false,
+        "GT_Malware_Behavior": "MALICIOUS",
+        "split": "calibration"
+      },
+      "injected": {
+        "sample_id": "PAIR-001-INJECTED",
+        "sha256": "5b1ea51484b73decd3889f020bb89da69af499690cbe99a8938ce0a883fda088",
+        "code_region_sha256": "15f8da387ab4c0119fce31dc397bfa87192a676ce654d6b7fa395e29473a2ca8",
+        "group": 4,
+        "GT_Injection": true,
+        "GT_Malware_Behavior": "MALICIOUS",
+        "split": "calibration"
+      },
+      "invariance": {
+        "jaccard": 0.96
+      }
+    },
+    {
+      "pair_id": "PAIR-002",
+      "origin": "benign",
+      "malware_family": null,
+      "payload_family": "Role impersonation",
+      "split": "test",
+      "source": "synthetic://t09-example",
+      "clean": {
+        "sample_id": "PAIR-002-CLEAN",
+        "sha256": "fbbac56984412346e0eba63a0b53716dbe84d8112afdff93cffe8f801cb18368",
+        "code_region_sha256": "cfdba3dd5d8ba4932442d9922c0d6e739ea01f3303ab0f8635975a9a825f7e3d",
+        "group": 1,
+        "GT_Injection": false,
+        "GT_Malware_Behavior": "BENIGN",
+        "split": "test"
+      },
+      "injected": {
+        "sample_id": "PAIR-002-INJECTED",
+        "sha256": "2ccbb2ac4938bba04d9d244e8a1293f9ddc3247a4e010bc25f4cda4983647610",
+        "code_region_sha256": "cfdba3dd5d8ba4932442d9922c0d6e739ea01f3303ab0f8635975a9a825f7e3d",
+        "group": 2,
+        "GT_Injection": true,
+        "GT_Malware_Behavior": "BENIGN",
+        "split": "test"
+      },
+      "invariance": {
+        "jaccard": 0.97
+      }
+    },
+    {
+      "pair_id": "PAIR-003",
+      "origin": "malware",
+      "malware_family": "QakBot",
+      "payload_family": "Multi-encoding",
+      "split": "test",
+      "source": "synthetic://t09-example",
+      "clean": {
+        "sample_id": "PAIR-003-CLEAN",
+        "sha256": "8b73778095c69b17afcf9b337ddfa87f00d6ce6d7c7aa3e48e01a3c3d812a7c8",
+        "code_region_sha256": "6a4b9a3cc176a319afac8ba1703ae140778624b64a74001d80ca917d82c1ff60",
+        "group": 3,
+        "GT_Injection": false,
+        "GT_Malware_Behavior": "MALICIOUS",
+        "split": "test"
+      },
+      "injected": {
+        "sample_id": "PAIR-003-INJECTED",
+        "sha256": "174643faedaa081a37fd640ff09c8a6ffdc5a3a3a27702761973fedc9cefb3e0",
+        "code_region_sha256": "6a4b9a3cc176a319afac8ba1703ae140778624b64a74001d80ca917d82c1ff60",
+        "group": 4,
+        "GT_Injection": true,
+        "GT_Malware_Behavior": "MALICIOUS",
+        "split": "test"
+      },
+      "invariance": {
+        "jaccard": 0.98
+      }
+    },
+    {
+      "pair_id": "PAIR-004",
+      "origin": "benign",
+      "malware_family": null,
+      "payload_family": "Role impersonation",
+      "split": "test",
+      "source": "synthetic://t09-example",
+      "clean": {
+        "sample_id": "PAIR-004-CLEAN",
+        "sha256": "5d27ae5e58c4cf01a39537da72ccf538616d1222b3ee6b74d03a8a65885e4720",
+        "code_region_sha256": "c638c4cb2937cd13d1e1b8c6ede392c312c05cf489ed54771b512ca556eeb294",
+        "group": 1,
+        "GT_Injection": false,
+        "GT_Malware_Behavior": "BENIGN",
+        "split": "test"
+      },
+      "injected": {
+        "sample_id": "PAIR-004-INJECTED",
+        "sha256": "113d74a5771d47426aff2a946834934044abc36513391da3c799e273d121ab94",
+        "code_region_sha256": "c638c4cb2937cd13d1e1b8c6ede392c312c05cf489ed54771b512ca556eeb294",
+        "group": 2,
+        "GT_Injection": true,
+        "GT_Malware_Behavior": "BENIGN",
+        "split": "test"
+      },
+      "invariance": {
+        "jaccard": 0.99
+      }
+    },
+    {
+      "pair_id": "PAIR-005",
+      "origin": "malware",
+      "malware_family": "RedLine",
+      "payload_family": "Direct override",
+      "split": "calibration",
+      "source": "synthetic://t09-example",
+      "clean": {
+        "sample_id": "PAIR-005-CLEAN",
+        "sha256": "2b3c154ec6d11f55ed656670985d8f6f1a060f889a33a31b81827b011d170f42",
+        "code_region_sha256": "b4179209bf2017fb1564debc5cf4fd83f5dcbae30dc01dc56de3b276cb8e4a8f",
+        "group": 3,
+        "GT_Injection": false,
+        "GT_Malware_Behavior": "MALICIOUS",
+        "split": "calibration"
+      },
+      "injected": {
+        "sample_id": "PAIR-005-INJECTED",
+        "sha256": "7d7748bec96bfcf23d90e78c382dde2262cdeac3b71a5fe8fa0ff0276cd75d00",
+        "code_region_sha256": "b4179209bf2017fb1564debc5cf4fd83f5dcbae30dc01dc56de3b276cb8e4a8f",
+        "group": 4,
+        "GT_Injection": true,
+        "GT_Malware_Behavior": "MALICIOUS",
+        "split": "calibration"
+      },
+      "invariance": {
+        "jaccard": 0.95
+      }
+    }
+  ],
+  "rejections": [
+    {
+      "pair_id": "PAIR-006",
+      "reason": "Jaccard 0.91 < 0.95 (§6.1): behavioral signature lệch do payload"
+    }
+  ]
+}
