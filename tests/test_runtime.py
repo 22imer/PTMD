@@ -10,6 +10,7 @@ output gốc).
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 
 import jsonschema
@@ -22,6 +23,7 @@ from guardrail.runtime import (
     CanaryVerifier,
     DispatcherStore,
     ReadOnlyDispatcher,
+    _replace_case_insensitive,
     escape_deep,
     ingress_filter,
     issue_canary,
@@ -254,3 +256,113 @@ def test_canary_verifier_rejects_non_text_output() -> None:
     verifier = CanaryVerifier([issue_canary("t08")], artifact_sha256=ARTIFACT_SHA256)
     with pytest.raises(TypeError):
         verifier.verify(42)
+
+
+# --- Canary verifier: khóa mapping là bề mặt rò rỉ (đối xứng với ingress) ---
+
+
+def test_canary_verifier_sanitizes_leaked_top_level_keys() -> None:
+    token = issue_canary("t08")
+    verifier = CanaryVerifier([token], artifact_sha256=ARTIFACT_SHA256)
+
+    verdict = verifier.verify({token: "v", "CRITICAL INTEGRITY INSTRUCTION": "v"})
+
+    assert verdict.leaked is True
+    assert verdict.released is False
+    assert verdict.output == {CANARY_REDACTION: "v", SYSTEM_REDACTION: "v"}
+    rendered = json.dumps(verdict.output, ensure_ascii=False)
+    assert token not in rendered
+    assert "INTEGRITY" not in rendered
+    assert {hit.kind for hit in verdict.hits} == {"CANARY", "SYSTEM_MARKER"}
+    # Locator không được chứa lại token/marker vừa tước.
+    assert token not in "\n".join(hit.locator for hit in verdict.hits)
+    assert token not in json.dumps(verdict.evidence, ensure_ascii=False)
+
+
+def test_canary_verifier_sanitizes_nested_and_list_element_keys() -> None:
+    token = issue_canary("t08")
+    verifier = CanaryVerifier([token], artifact_sha256=ARTIFACT_SHA256)
+
+    verdict = verifier.verify(
+        {
+            "report_status": "COMPLETE",
+            "nested": {token: "outer", "deep": {token: "inner"}},
+            "attempts": [{token: ["payload"]}],
+        }
+    )
+
+    assert verdict.leaked is True
+    assert verdict.released is False
+    assert verdict.output == {
+        "report_status": "COMPLETE",
+        "nested": {CANARY_REDACTION: "outer", "deep": {CANARY_REDACTION: "inner"}},
+        "attempts": [{CANARY_REDACTION: ["payload"]}],
+    }
+    locators = {hit.locator for hit in verdict.hits}
+    assert f"report.nested.{CANARY_REDACTION}" in locators
+    assert f"report.nested.deep.{CANARY_REDACTION}" in locators
+    assert f"report.attempts[0].{CANARY_REDACTION}" in locators
+
+
+def test_canary_verifier_key_and_value_redaction_are_symmetric() -> None:
+    token = issue_canary("t08")
+    verifier = CanaryVerifier([token], artifact_sha256=ARTIFACT_SHA256)
+
+    as_value = verifier.verify({"field": token}).output["field"]
+    as_key = next(iter(verifier.verify({token: "x"}).output))
+    assert as_key == as_value == CANARY_REDACTION
+
+    marker_value = verifier.verify({"field": "Critical Integrity Instruction"}).output["field"]
+    marker_key = next(iter(verifier.verify({"Critical Integrity Instruction": "x"}).output))
+    assert marker_key == marker_value == SYSTEM_REDACTION
+
+
+def test_canary_verifier_keeps_both_entries_when_redacted_keys_collide() -> None:
+    """Khóa bị tước trùng khóa có sẵn ⇒ hậu tố tất định, không ghi đè mất dữ liệu."""
+    token = issue_canary("t08")
+    verifier = CanaryVerifier([token], artifact_sha256=ARTIFACT_SHA256)
+
+    verdict = verifier.verify({token: "leaked", CANARY_REDACTION: "literal"})
+
+    assert verdict.leaked is True
+    assert verdict.released is False
+    assert verdict.output == {
+        CANARY_REDACTION: "leaked",
+        f"{CANARY_REDACTION}#2": "literal",
+    }
+
+
+def test_canary_verifier_leaves_clean_run_untouched_including_non_string_keys() -> None:
+    verifier = CanaryVerifier([issue_canary("t08")], artifact_sha256=ARTIFACT_SHA256)
+    output = {"executive_summary": "sạch", 7: ["a"], "nested": {"k": "v"}}
+
+    verdict = verifier.verify(output)
+
+    assert verdict.leaked is False
+    assert verdict.released is True
+    assert verdict.output == output
+    assert verdict.hits == ()
+    assert verdict.output[7] == ["a"], "khóa không phải str giữ nguyên"
+
+
+def test_canary_verifier_rejects_empty_or_blank_system_marker() -> None:
+    for marker in ("", "   "):
+        with pytest.raises(ValueError, match="system_marker"):
+            CanaryVerifier(
+                [issue_canary("t08")],
+                artifact_sha256=ARTIFACT_SHA256,
+                system_markers=[marker],
+            )
+
+
+def test_replace_case_insensitive_empty_needle_returns_text_unchanged() -> None:
+    """Kim rỗng trả nguyên văn thay vì lặp vô hạn (thread + timeout để không treo suite)."""
+    result: list[str] = []
+    worker = threading.Thread(
+        target=lambda: result.append(_replace_case_insensitive("abc", "", "[R]")),
+        daemon=True,
+    )
+    worker.start()
+    worker.join(timeout=5)
+    assert not worker.is_alive(), "kim rỗng phải không lặp vô hạn"
+    assert result == ["abc"]

@@ -319,6 +319,23 @@ class CanaryVerdict(NamedTuple):
     evidence: tuple[EvidenceRecord, ...]
 
 
+def _unique_mapping_key(existing: Mapping[object, object], key: str) -> str:
+    """Khóa thay thế tất định khi khóa đã tước trùng khóa đã có trong kết quả.
+
+    Hai khóa nguồn khác nhau (ví dụ chính token canary và chuỗi
+    ``[REDACTED:CANARY]``) có thể cùng tước về một chuỗi. Ghi đè khi đó sẽ **âm
+    thầm mất dữ liệu**, nên khóa đến sau nhận hậu tố ``#n`` tất định theo thứ tự
+    chèn thay vì bị bỏ. Bản ghi rò rỉ vẫn được sinh (``leaked=True``) nên hành vi
+    an toàn không đổi.
+    """
+    if key not in existing:
+        return key
+    index = 2
+    while f"{key}#{index}" in existing:
+        index += 1
+    return f"{key}#{index}"
+
+
 class CanaryVerifier:
     """So khớp canary đã cấp + marker chỉ thị hệ thống trong output cuối (§3.6, §5)."""
 
@@ -340,7 +357,14 @@ class CanaryVerifier:
             if token not in tokens:
                 tokens.append(token)
         self.canaries = tuple(tokens)
-        self.system_markers = tuple(marker.lower() for marker in system_markers)
+        markers: list[str] = []
+        for marker in system_markers:
+            if not isinstance(marker, str) or not marker.strip():
+                raise ValueError("system_marker phải là chuỗi khác rỗng")
+            lowered = marker.lower()
+            if lowered not in markers:
+                markers.append(lowered)
+        self.system_markers = tuple(markers)
         self.artifact_sha256 = artifact_sha256
         self.year = year
         self.rule_or_model_version = rule_or_model_version
@@ -382,12 +406,29 @@ class CanaryVerifier:
     # --- Nội bộ ------------------------------------------------------------
 
     def _sanitize(self, node: object, locator: str, found: list[CanaryHit]) -> object:
+        """Tước rò rỉ đệ quy; khóa mapping được tước **đối xứng** với giá trị.
+
+        Khóa ``str`` đi qua đúng đường :meth:`_sanitize_text` như giá trị (nên
+        canary không thể tồn tại dai dẳng dưới dạng khóa); khóa không phải ``str``
+        giữ nguyên. Nếu hai khóa khác nhau bị tước về cùng một chuỗi, khóa sau
+        nhận hậu tố ``#n`` tất định (xem :func:`_unique_mapping_key`) để không
+        khóa nào bị ghi đè âm thầm — lượt verify vẫn báo ``leaked=True`` nên
+        không có đường phát hành bản gốc.
+        """
         if isinstance(node, str):
             return self._sanitize_text(node, locator, found)
         if isinstance(node, Mapping):
             result: dict[object, object] = {}
             for key, value in node.items():
-                result[key] = self._sanitize(value, f"{locator}.{key}", found)
+                if not isinstance(key, str):
+                    result[key] = self._sanitize(value, f"{locator}.{key}", found)
+                    continue
+                key_hits: list[CanaryHit] = []
+                sanitized_key = self._sanitize_text(key, locator, key_hits)
+                stored_key = _unique_mapping_key(result, sanitized_key)
+                entry_locator = f"{locator}.{stored_key}"
+                found.extend(hit._replace(locator=entry_locator) for hit in key_hits)
+                result[stored_key] = self._sanitize(value, entry_locator, found)
             return result
         if isinstance(node, (list, tuple)):
             return [
@@ -442,7 +483,12 @@ class CanaryVerifier:
 
 
 def _replace_case_insensitive(text: str, needle: str, replacement: str) -> str:
-    """Thay mọi lần xuất hiện không phân biệt hoa/thường mà không dùng regex động."""
+    """Thay mọi lần xuất hiện không phân biệt hoa/thường mà không dùng regex động.
+
+    ``needle`` rỗng trả về ``text`` nguyên trạng (kim rỗng khớp vô hạn vị trí).
+    """
+    if not needle:
+        return text
     lowered = text.lower()
     result: list[str] = []
     cursor = 0
