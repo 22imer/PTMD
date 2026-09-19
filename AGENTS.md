@@ -22,6 +22,7 @@ Repo này nghiên cứu và xây dựng guardrail chống Indirect Prompt Inject
 | `issues/` | Lịch sử review; quy ước `issue_{date}_{slug}.md`. |
 | `PLAN.md` | Kế hoạch Phase 2 và gate tiền triển khai. |
 | `memory/lessons-learned.md` | Bài học vận hành (append-only; xem `memory/README.md`). |
+| `README.md` | Hướng dẫn sử dụng cho người đọc (yêu cầu môi trường, setup từ checkout, quickstart E2E, giải thích đường ingestion). |
 | `src/guardrail/README.md` | Hướng dẫn prototype (module map, chạy test, blocked items). |
 | `reports/build-report.md` | Báo cáo tổng hợp build waves, supervisor verdicts, bug ledger, waivers. |
 
