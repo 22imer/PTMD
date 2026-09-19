@@ -12,7 +12,7 @@ Kẻ tấn công thường che giấu câu lệnh Prompt Injection bằng Packer
 - **Tài liệu chính thức YARA Cuckoo**: [https://yara.readthedocs.io/en/stable/modules/cuckoo.html](https://yara.readthedocs.io/en/stable/modules/cuckoo.html)
 - **Tài liệu YARA Command Line**: [https://yara.readthedocs.io/en/stable/commandline.html](https://yara.readthedocs.io/en/stable/commandline.html)
 - **Mô tả kỹ thuật**:
-  - **Module `cuckoo` tích hợp trong YARA**: YARA hỗ trợ cú pháp `import "cuckoo"` cho phép viết các rule kiểm tra trực tiếp trên file báo cáo động JSON từ Sandbox (`yara -x cuckoo=behavior_report.json rules.yar target_file`). Rule có thể kiểm tra:
+  - **Module `cuckoo` tích hợp trong YARA**: YARA hỗ trợ cú pháp `import "cuckoo"` cho phép viết các rule kiểm tra trực tiếp trên file báo cáo động JSON từ Sandbox (`yara -x cuckoo=behavior_report.json rules.yar target_file`; lưu ý `-x` ≡ `--module-data=MODULE=FILE` — kênh module-data, còn external variable là `-d`, xem errata SP-01 issue 2026-09-20). Rule có thể kiểm tra:
     - `cuckoo.network.http_user_agent(/regexp/)`, `cuckoo.network.http_request(/regexp/)` (bắt promptware giấu trong User-Agent hoặc URL request).
     - `cuckoo.registry.key_access(/regexp/)`, `cuckoo.filesystem.file_access(/regexp/)`, `cuckoo.sync.mutex(/regexp/)`.
   - **Quét trực tiếp RAM (`yara [OPTIONS] RULES_FILE <PID>`)**: YARA có khả năng quét trực tiếp vào không gian địa chỉ bộ nhớ của một tiến trình đang chạy (qua Process ID) hoặc quét file Memory Dump (`.dmp`).
