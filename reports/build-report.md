@@ -43,8 +43,10 @@ Số test toàn suite theo mốc: `388 passed, 1 skipped` (Mục D) → `469 pas
   - `reports/coverage.json` (commit `1f7004a`) là snapshot của wave L4a cho nhóm file trên; các module giao sau
     (`policy/evidence/context/runtime/report/pipeline/prompt_guard/yara_scanner/evaluation`) **chưa có snapshot
     coverage đầy đủ** — không suy diễn con số coverage cho các module này.
-- Test theo mục: T01 11 · T04 12 · T06 48 · T07 90 · T08 61 · T05 71 · evaluation 58 (29 protocol + 29 metrics) ·
-  hardening L4a 55 · battery E2E L4b 10.
+- Test theo mục (collect hiện tại, tổng 487): T01 11 · T02 38 (13 extraction + 25 telemetry) · T03 24 · T04 12 ·
+  T05 71 (1 skipped) · T06 48 · T07 90 (46 policy + 44 evidence) · T08 68 (14 context + 23 runtime + 19 report +
+  12 pipeline) · evaluation 58 (29 protocol + 29 metrics) · hardening 57 (55 tại wave L4a, +2 sau `e0912fd`) ·
+  battery E2E L4b 10. Số theo mục ở thời điểm handover: T08 61 (trước `aa43183`), hardening 55 (trước `e0912fd`).
 
 ## 3. Supervisor verdict roster
 
