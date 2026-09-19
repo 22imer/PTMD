@@ -17,10 +17,13 @@ Repo này nghiên cứu và xây dựng guardrail chống Indirect Prompt Inject
 | `docs/adr/0001-separate-capa-from-capev2.md` | ADR quyết định tách CAPA khỏi CAPEv2. |
 | `docs/adr/0002-tag-as-evidence-over-hard-block.md` | ADR quyết định Tag-as-Evidence thay vì hard block mặc định. |
 | `docs/adr/0003-passive-consumer-agent.md` | ADR quyết định agent tiêu thụ thụ động. |
+| `docs/adr/0004-jsonschema-as-report-validator.md` | ADR validator báo cáo (jsonschema pin, điều kiện swap Guardrails AI). |
 | `links.md` | Nguồn tham khảo. |
 | `issues/` | Lịch sử review; quy ước `issue_{date}_{slug}.md`. |
 | `PLAN.md` | Kế hoạch Phase 2 và gate tiền triển khai. |
 | `memory/lessons-learned.md` | Bài học vận hành (append-only; xem `memory/README.md`). |
+| `src/guardrail/README.md` | Hướng dẫn prototype (module map, chạy test, blocked items). |
+| `reports/build-report.md` | Báo cáo tổng hợp build waves, supervisor verdicts, bug ledger, waivers. |
 
 ## Ngôn ngữ chung (Ubiquitous Language)
 
