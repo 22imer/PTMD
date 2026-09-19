@@ -1,0 +1,19 @@
+{
+  "source": "https://raw.githubusercontent.com/mitre-atlas/atlas-data/main/dist/v6/ATLAS-2026.09.yaml",
+  "snapshot": "ATLAS-2026.09",
+  "fetched": "2026-09-20",
+  "note": "Tên kỹ thuật lấy nguyên văn từ trường `name` của snapshot (nguồn primary, đối chiếu cho SP-04). Với sub-technique, snapshot chỉ đặt tên riêng (vd `Indirect`); hiển thị dạng `<parent>: <sub>` là quy ước trình bày của test, không phải tên trong snapshot.",
+  "techniques": {
+    "AML.T0015": "Evade AI Model",
+    "AML.T0034": "Cost Harvesting",
+    "AML.T0043": "Craft Adversarial Data",
+    "AML.T0043.001": "Black-Box Optimization",
+    "AML.T0048": "External Harms",
+    "AML.T0051": "LLM Prompt Injection",
+    "AML.T0051.001": "Indirect",
+    "AML.T0053": "AI Agent Tool Invocation",
+    "AML.T0054": "LLM Jailbreak",
+    "AML.T0056": "Extract LLM System Prompt",
+    "AML.T0057": "LLM Data Leakage"
+  }
+}

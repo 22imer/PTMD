@@ -64,6 +64,7 @@ from guardrail.prompt_guard import (
     PromptGuardConfig,
     PromptGuardError,
     PromptGuardService,
+    is_promptware,
 )
 from guardrail.report import (
     MAX_RE_ASKS,
@@ -99,8 +100,8 @@ ATLAS_TECHNIQUE_NAMES: dict[str, str] = {
     "AML.T0051.001": "LLM Prompt Injection: Indirect",
     "AML.T0034": "Cost Harvesting",
     "AML.T0043": "Craft Adversarial Data",
-    "AML.T0043.001": "Craft Adversarial Data: Backdoor ML Model",
-    "AML.T0048": "Societal Harm",
+    "AML.T0043.001": "Craft Adversarial Data: Black-Box Optimization",
+    "AML.T0048": "External Harms",
     "AML.T0051": "LLM Prompt Injection",
     "AML.T0053": "AI Agent Tool Invocation",
     "AML.T0054": "LLM Jailbreak",
@@ -470,12 +471,31 @@ def _prompt_guard_findings(
     service: PromptGuardService,
     normalized: Sequence[NormalizedText],
     provenance_by_text: Mapping[str, NormalizedText],
-) -> tuple[list[EvidenceFinding], bool, ProcessingState]:
-    """Chạy Prompt Guard trên chuỗi đã chuẩn hoá.
+    *,
+    yara_flagged_texts: frozenset[str] = frozenset(),
+    target_entity_is_llm: bool = False,
+) -> tuple[list[EvidenceFinding], bool, ProcessingState, int]:
+    """Chạy Prompt Guard trên chuỗi đã chuẩn hoá, áp predicate §3.4.
 
-    Trả ``(findings_dương_tính, errored, coverage)``. Một dương tính không truy
-    nguyên được provenance **không** đủ điều kiện cho ``DETECTED`` (§3.5.1.1), nên
-    được đánh dấu ``errored`` thay vì âm tính giả.
+    Trả ``(findings_dương_tính, errored, coverage, số_bị_lọc)``. Một dương tính
+    không truy nguyên được provenance **không** đủ điều kiện cho ``DETECTED``
+    (§3.5.1.1), nên được đánh dấu ``errored`` thay vì âm tính giả.
+
+    Predicate Malware Command vs. Promptware (spec §3.4):
+    ``IsPromptware = ModelDetected ∧ (TargetEntityIsLLM ∨ InstructionOverrideContext)``.
+
+    - ``target_entity_is_llm`` — quyết định của caller (contract provenance +
+      loại nguồn; docstring ``prompt_guard``: chuỗi API-log của ``cmd.exe`` ⇒
+      ``False``). Pipeline mặc định ``False``; integrator E2E biết chuỗi có
+      được nhúngverbatim vào context LLM hay không thì truyền ``True``.
+    - ``yara_flagged_texts`` — kết luận của nhánh YARA (``InstructionOverrideContext``):
+      các normalized string mà ruleset tĩnh (họ override/verdict/role của
+      §3.2.1) đã khớp trong cùng lượt chạy.
+
+    Chuỗi ``ModelDetected`` nhưng thiếu cả hai ngữ cảnh là **malware command**,
+    không phải promptware — bị lọc khỏi finding (chống FPR Nhóm 3) và được đếm
+    vào giá trị trả về thứ tư để caller ghi ``limitations`` tường minh, không
+    che giấu phát hiện của model.
     """
     classification = service.classify_batch(
         [item.normalized_string for item in normalized]
@@ -483,6 +503,7 @@ def _prompt_guard_findings(
     findings: list[EvidenceFinding] = []
     seen: set[str] = set()
     missing_provenance = False
+    filtered_non_promptware = 0
     for score in classification.scores:
         if not score.detected or score.text in seen:
             continue
@@ -490,6 +511,13 @@ def _prompt_guard_findings(
         item = provenance_by_text.get(score.text)
         if item is None:
             missing_provenance = True
+            continue
+        if not is_promptware(
+            model_detected=True,
+            target_entity_is_llm=target_entity_is_llm,
+            instruction_override_context=score.text in yara_flagged_texts,
+        ):
+            filtered_non_promptware += 1
             continue
         label = LABEL_JAILBREAK if score.predicted_label == LABEL_JAILBREAK else "INJECTION"
         code = "AML.T0054" if label == LABEL_JAILBREAK else "AML.T0051.001"
@@ -511,7 +539,7 @@ def _prompt_guard_findings(
             )
         )
     errored = classification.detected and missing_provenance
-    return findings, errored, classification.coverage
+    return findings, errored, classification.coverage, filtered_non_promptware
 
 
 def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu hình rõ ràng
@@ -532,6 +560,7 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
     max_re_asks: int = MAX_RE_ASKS,
     prompt_guard_config: PromptGuardConfig | None = None,
     prompt_guard_budget: int = MAX_STRINGS,
+    prompt_guard_target_entity_is_llm: bool = False,
     file_type: str | None = None,
     packer_detected: str = "not detected",
 ) -> PipelineResult:
@@ -559,6 +588,12 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         max_re_asks: số lần re-ask tối đa (spec §3.6: 2).
         prompt_guard_config: cấu hình Prompt Guard; mặc định lấy từ file ghim.
         prompt_guard_budget: trần số chuỗi đưa vào Prompt Guard.
+        prompt_guard_target_entity_is_llm: biến ngữ cảnh ``TargetEntityIsLLM`` của
+            predicate §3.4 — caller khẳng định chuỗi telemetry hướng tới LLM
+            (được nhúng vào context agent) thì truyền ``True``; mặc định ``False``
+            (chuỗi API-log mặc định là lệnh/dữ liệu malware, không phải prompt).
+            ``InstructionOverrideContext`` tự suy từ kết luận nhánh YARA trong
+            cùng lượt chạy.
         file_type / packer_detected: metadata report; ``file_type=None`` ⇒ suy từ
             ``cape_report.target.file.type``.
 
@@ -712,10 +747,26 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
             "Prompt Guard không có backend (model gated) — detector bắt buộc errored."
         )
     else:
+        # InstructionOverrideContext (§3.4): kết luận của nhánh YARA — các chuỗi
+        # ruleset tĩnh (họ override/verdict/role) đã khớp trong lượt chạy này.
+        yara_flagged_texts = frozenset(
+            text
+            for text, item in provenance_by_text.items()
+            if any(f.provenance == item.provenance for f in telemetry_findings)
+        )
         service = PromptGuardService(config=prompt_guard_config, backend=backend)
         try:
-            guard_findings, guard_errored, guard_coverage = _prompt_guard_findings(
-                service, telemetry_normalized[:prompt_guard_budget], provenance_by_text
+            (
+                guard_findings,
+                guard_errored,
+                guard_coverage,
+                guard_filtered,
+            ) = _prompt_guard_findings(
+                service,
+                telemetry_normalized[:prompt_guard_budget],
+                provenance_by_text,
+                yara_flagged_texts=yara_flagged_texts,
+                target_entity_is_llm=prompt_guard_target_entity_is_llm,
             )
         except PromptGuardError as exc:  # detector lỗi ⇒ INCONCLUSIVE, không âm tính giả
             detector_results.append(
@@ -728,6 +779,12 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
             )
             limitations.append(f"Prompt Guard thất bại: {exc}")
         else:
+            if guard_filtered:
+                limitations.append(
+                    f"Prompt Guard phát hiện {guard_filtered} chuỗi đối kháng nhưng thiếu "
+                    "ngữ cảnh promptware §3.4 (TargetEntityIsLLM=False và không có kết "
+                    "luận YARA) — không nâng thành finding."
+                )
             detector_results.append(
                 _detector_result(
                     DetectorName.META_PROMPT_GUARD,
