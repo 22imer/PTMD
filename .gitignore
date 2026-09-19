@@ -4,3 +4,7 @@ __pycache__/
 graphify-out/
 .pytest_cache/
 .coverage
+node_modules/
+package.json
+package-lock.jsonbuild/
+*.egg-info/

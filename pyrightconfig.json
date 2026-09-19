@@ -1,0 +1,6 @@
+{
+  "extraPaths": ["src"],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}
