@@ -17,7 +17,7 @@ Trạng thái: **prototype, chưa production**; hiệu quả phòng thủ chưa 
 | `pytest-cov` | đo coverage khi cần (tuỳ chọn) | 7.1.0 |
 | `transformers` + `torch` | chỉ khi dùng Prompt Guard thật (tuỳ chọn) | 5.17.0 / 2.14.0+cpu |
 
-`yara-python` và `pytest-cov` không được khai báo trong `pyproject.toml` (chỉ `jsonschema` là dependency, `pytest` nằm ở extra `dev`), nên phải cài tay khi cần.
+`yara-python` là dependency chính thức (spec §3.2.2: YARA ≥ v4.3.2, floor khai báo trong `pyproject.toml`); `pytest-cov` chưa được khai báo (chỉ `jsonschema` + `yara-python` là dependency, `pytest` nằm ở extra `dev`), cài tay khi cần đo coverage.
 
 ## 2. Cài đặt và chạy từ checkout
 
@@ -41,7 +41,7 @@ fi
 Nếu `.venv` đã tồn tại nhưng thiếu gói, chỉ cài vào môi trường của chính bạn (ví dụ
 `.venv/bin/python -m pip install "yara-python==4.5.4"`).
 
-Không dùng `pip install .` như một cách chạy đủ: wheel cài được package `guardrail` (setuptools auto-discovery cho layout `src/`) nhưng **không kèm dữ liệu** — `rules/`, `schemas/`, `reports/integration-pin.json` và `src/guardrail/data/confusables_min.json` được resolve từ source tree (`Path(__file__).resolve().parents[2]`) nên thiếu trong wheel, và `yara-python` cũng không được khai báo. Luôn chạy với `PYTHONPATH=src` từ gốc checkout; `pytest` tự lấy `pythonpath = ["src"]` từ `pyproject.toml`.
+Không dùng `pip install .` như một cách chạy đủ: wheel cài được package `guardrail` kèm đủ dependency (`jsonschema`, `yara-python`) nhưng **không kèm dữ liệu** — `rules/`, `schemas/`, `reports/integration-pin.json` và `src/guardrail/data/confusables_min.json` được resolve từ source tree (`Path(__file__).resolve().parents[2]`) nên thiếu trong wheel. Luôn chạy với `PYTHONPATH=src` từ gốc checkout; `pytest` tự lấy `pythonpath = ["src"]` từ `pyproject.toml`.
 
 ## 3. Quickstart: chạy E2E trên fixture vô hại
 

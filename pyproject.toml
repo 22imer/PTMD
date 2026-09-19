@@ -9,6 +9,7 @@ description = "Guardrail chống Indirect Prompt Injection cho agent phân tích
 requires-python = ">=3.11"
 dependencies = [
     "jsonschema",
+    "yara-python>=4.3.2",
 ]
 
 [project.optional-dependencies]
