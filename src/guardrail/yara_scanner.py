@@ -21,8 +21,10 @@ Ba đường quét, cùng một ruleset tĩnh ``rules/promptware.yar``:
   giữ nguyên** (cùng đối tượng ``Provenance`` mà ``NormalizationEngine`` trả về),
   kèm ``transform_chain`` để truy vết. Không lấy offset của chuỗi normalized
   làm file offset (``implemention.md`` dòng 145).
-- ``scan_cape_report`` — quét report CAPEv2 bằng module Cuckoo qua external
-  variable ``cuckoo=<đường dẫn report>`` (spec §3.2.2). Đây là cơ chế **độc
+- ``scan_cape_report`` — quét report CAPEv2 bằng module Cuckoo qua **module-data**
+  ``modules_data={"cuckoo": <bytes report>}`` (cùng kênh với CLI
+  ``-x cuckoo=<report>`` ≡ ``--module-data``; errata SP-01 trong
+  ``issues/issue_2026-09-20_full_project_review_new_findings.md``). Đây là cơ chế **độc
   lập** với Telemetry Ingestion Adapter (T02): adapter trích API arguments
   (``OutputDebugString``/``SetWindowText``/``MessageBox``) thành ``RawString``
   cho scanner chuỗi, còn module Cuckoo kiểm tra network/file/registry/mutex
@@ -403,7 +405,12 @@ class YaraScanner:
     # --- Quét report CAPEv2 qua module Cuckoo ------------------------------
 
     def scan_cape_report(self, report_path: str | Path) -> CuckooScanResult:
-        """Quét report CAPEv2 bằng module Cuckoo qua external ``cuckoo=<path>``.
+        """Quét report CAPEv2 bằng module Cuckoo qua module-data Cuckoo.
+
+        Report được nạp vào module qua ``modules_data={"cuckoo": <bytes>}`` —
+        cùng kênh với CLI ``-x cuckoo=<report>`` (``--module-data``). Biến
+        external (``externals=``) chỉ là biến điều kiện trong ``condition:``,
+        không cấp dữ liệu cho module (errata SP-01).
 
         Module không khả dụng ⇒ ``errors=[CAPABILITY]``, ``coverage=PARTIAL``,
         ``findings=[]`` — coverage gap được ghi nhận tường minh kèm cờ cấu hình,
@@ -432,10 +439,11 @@ class YaraScanner:
             )
 
         try:
+            report_bytes = path.read_bytes()
             matches = self.cuckoo_rules.match(
-                filepath=str(path), externals={"cuckoo": str(path)}
+                filepath=str(path), modules_data={"cuckoo": report_bytes}
             )
-        except yara.Error as exc:
+        except (yara.Error, OSError) as exc:
             return CuckooScanResult(
                 [],
                 [_error(ScanErrorKind.SCAN_ERROR, path, str(exc))],
