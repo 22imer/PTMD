@@ -18,6 +18,7 @@ import pytest
 from guardrail.evaluation.dataset_protocol import (
     CALIBRATION_PAIRS,
     GROUP_SIZE,
+    INSERTION_LOCI,
     MIN_JACCARD,
     TEST_PAIRS,
     TOTAL_PAIRS,
@@ -54,10 +55,12 @@ def make_manifest(
 ) -> dict:
     """Sinh manifest tổng hợp nhất quán theo §6.1–6.2.
 
-    Quy ước sinh: pair chẵn là nền lành tính, pair lẻ là nền mã độc (200 pair →
-    100/100); cứ 5 pair liên tiếp thì 2 pair thuộc calibration (80/120); họ mã độc
-    và họ payload lấy từ pool riêng của từng split; ``jaccard`` chạy 0.95–0.99 để
-    chạm đúng ngưỡng; ``code_region_sha256`` dùng chung giữa hai thành viên.
+    Quy ước sinh: cứ 5 pair liên tiếp thì 2 pair thuộc calibration (200 pair →
+    80/120); trong mỗi split, pair ở vị trí chẵn là nền lành tính và vị trí lẻ là
+    nền mã độc (mỗi split cân bằng 50/50, tổng 100/100); họ mã độc và họ payload
+    lấy từ pool riêng của từng split; ``insertion_locus`` luân phiên trong
+    allowlist §6.1; ``jaccard`` chạy 0.95–0.99 để chạm đúng ngưỡng;
+    ``code_region_sha256`` dùng chung giữa hai thành viên.
     """
     manifest_pairs: list[dict] = []
     position_in_split = {"calibration": 0, "test": 0}
@@ -67,7 +70,7 @@ def make_manifest(
         position = position_in_split[split]
         position_in_split[split] += 1
 
-        origin = "benign" if index % 2 == 0 else "malware"
+        origin = "benign" if position % 2 == 0 else "malware"
         pair_id = f"PAIR-{index:03d}"
         behavior = "BENIGN" if origin == "benign" else "MALICIOUS"
         clean_group, injected_group = (1, 2) if origin == "benign" else (3, 4)
@@ -83,6 +86,7 @@ def make_manifest(
                 "malware_family": malware_family,
                 "payload_family": PAYLOAD_FAMILIES[split][position % len(PAYLOAD_FAMILIES[split])],
                 "split": split,
+                "insertion_locus": INSERTION_LOCI[position % len(INSERTION_LOCI)],
                 "source": source,
                 "clean": {
                     "sample_id": f"{pair_id}-CLEAN",
@@ -141,6 +145,7 @@ def test_manifest_tong_hop_hop_le(manifest):
         "pairs": TOTAL_PAIRS,
         "groups": {1: GROUP_SIZE, 2: GROUP_SIZE, 3: GROUP_SIZE, 4: GROUP_SIZE},
         "splits": {"calibration": CALIBRATION_PAIRS, "test": TEST_PAIRS},
+        "insertion_loci": dict.fromkeys(INSERTION_LOCI, TOTAL_PAIRS // len(INSERTION_LOCI)),
     }
     assert report["rejections"] == []
     assert report["pair_rejection_rate"] == "0.0000"
@@ -325,6 +330,115 @@ def test_pair_vua_nhan_vua_bi_loai_bi_tu_choi(manifest):
 
     assert report["ok"] is False
     assert any("rejection log" in error["reason"] for error in report["errors"]), _reasons(report)
+
+
+def test_thieu_insertion_locus_bi_tu_choi(manifest):
+    pair = manifest["pairs"][0]
+    del pair["insertion_locus"]
+
+    report = validate_manifest(manifest)
+
+    assert report["ok"] is False
+    assert any(error["path"] == "/pairs/0/insertion_locus" for error in report["errors"]), _reasons(
+        report
+    )
+
+
+def test_insertion_locus_ngoai_allowlist_bi_tu_choi(manifest):
+    """.text là vùng bị cấm chèn (§6.1) — phải nằm ngoài allowlist."""
+    manifest["pairs"][0]["insertion_locus"] = ".text"
+
+    report = validate_manifest(manifest)
+
+    assert report["ok"] is False
+    assert any(
+        error["path"].endswith("/insertion_locus") and ".rsrc" in error["reason"]
+        for error in report["errors"]
+    ), _reasons(report)
+
+
+def test_manifest_vi_du_khong_bat_buoc_khai_locus():
+    """example_only được miễn trường locus, nhưng locus khai sai vẫn bị bắt."""
+    example = make_manifest(pairs=6, example_only=True)
+    for pair in example["pairs"]:
+        del pair["insertion_locus"]
+    assert validate_manifest(example)["ok"] is True
+
+    example["pairs"][0]["insertion_locus"] = "vùng-code"
+    report = validate_manifest(example)
+    assert report["ok"] is False
+    assert any(error["path"] == "/pairs/0/insertion_locus" for error in report["errors"])
+
+
+def test_sha256_clean_bang_injected_bi_tu_choi(manifest):
+    """Hai member trùng hash nghĩa là payload chưa được chèn."""
+    pair = manifest["pairs"][0]
+    pair["injected"]["sha256"] = pair["clean"]["sha256"]
+
+    report = validate_manifest(manifest)
+
+    assert report["ok"] is False
+    assert any(
+        error["path"] == "/pairs/0/injected/sha256" and "trùng" in error["reason"]
+        for error in report["errors"]
+    ), _reasons(report)
+
+
+def test_sample_id_trung_giua_hai_pair_bi_tu_choi(manifest):
+    manifest["pairs"][1]["clean"]["sample_id"] = manifest["pairs"][0]["clean"]["sample_id"]
+
+    report = validate_manifest(manifest)
+
+    assert report["ok"] is False
+    assert any(
+        error["path"] == "/pairs/1/clean/sample_id" and "trùng" in error["reason"]
+        for error in report["errors"]
+    ), _reasons(report)
+
+
+def test_mat_can_bang_origin_trong_split_bi_tu_choi(manifest):
+    """Lật nguồn gốc một pair trong test → split mất cân bằng 59/61 (R06)."""
+    pair = _pick(manifest, origin="benign", split="test")
+    pair["origin"] = "malware"
+    pair["malware_family"] = MALWARE_FAMILIES["test"][0]
+    pair["clean"]["group"] = 3
+    pair["injected"]["group"] = 4
+    pair["clean"]["GT_Malware_Behavior"] = "MALICIOUS"
+    pair["injected"]["GT_Malware_Behavior"] = "MALICIOUS"
+
+    report = validate_manifest(manifest)
+
+    assert report["ok"] is False
+    assert any(
+        "split 'test' phải cân bằng nguồn gốc" in error["reason"] and "59 + 61" in error["reason"]
+        for error in report["errors"]
+    ), _reasons(report)
+
+
+def test_require_scale_tu_choi_manifest_vi_du():
+    report = validate_manifest_file(EXAMPLE_FIXTURE_PATH, require_scale=True)
+
+    assert report["ok"] is False
+    assert any(error["path"] == "/example_only" for error in report["errors"]), _reasons(report)
+
+
+def test_max_rejection_rate_chan_dataset():
+    manifest = make_manifest()
+    manifest["rejections"] = [
+        {"pair_id": f"PAIR-REJ-{index:03d}", "reason": "Jaccard 0.90 < 0.95 (§6.1)"}
+        for index in range(10)
+    ]
+
+    within = validate_manifest(manifest, max_rejection_rate=0.05)
+    assert within["ok"] is True, _reasons(within)
+    assert within["pair_rejection_rate"] == format_metric(10, TOTAL_PAIRS + 10)
+
+    over = validate_manifest(manifest, max_rejection_rate=0.01)
+    assert over["ok"] is False
+    assert any(
+        error["path"] == "/rejections" and "vượt trần" in error["reason"]
+        for error in over["errors"]
+    ), _reasons(over)
 
 
 def test_manifest_vi_du_trong_fixture_hop_le():

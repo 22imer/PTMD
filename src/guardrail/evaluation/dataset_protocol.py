@@ -19,14 +19,25 @@ Bất biến được kiểm (§6.1):
   Jaccard của behavioral signature ≥ 0.95. Pair vi phạm được **báo cáo**
   trong rejection log kèm lý do — validator không âm thầm bỏ pair khỏi manifest.
 
-Split chống rò rỉ (§6.2): 80 pair calibration / 120 pair test; hai thành viên
-của một pair luôn cùng split; không ``malware_family`` và không ``payload_family``
-nào xuất hiện ở cả hai split.
+Split chống rò rỉ (§6.2): 80 pair calibration / 120 pair test; **mỗi split cân
+bằng nguồn gốc** (40 + 40 ở calibration, 60 + 60 ở test); hai thành viên của một
+pair luôn cùng split; không ``malware_family`` và không ``payload_family`` nào
+xuất hiện ở cả hai split.
+
+Locus chèn (§6.1): mỗi pair khai ``insertion_locus`` thuộc allowlist vùng dữ liệu
+thuần (``.rsrc``/``debug``/``version``/``overlay``) — bắt buộc với manifest không
+phải ví dụ; ``counts["insertion_loci"]`` đếm theo khai báo.
+
+Định danh mẫu: ``sample_id`` phải duy nhất trên toàn manifest, và ``sha256`` của
+``clean`` và ``injected`` trong cùng pair phải khác nhau — hai artifact trùng hash
+nghĩa là payload chưa được chèn.
 
 ``example_only: true`` dành cho manifest ví dụ về hình dạng: bỏ qua các phép
-kiểm quy mô (200 pair, 100/100, 80/120, 100 mỗi nhóm) nhưng giữ nguyên toàn bộ
-phép kiểm nhất quán từng pair, split và họ. Manifest ví dụ không phải dataset
-được nghiệm thu.
+kiểm quy mô (200 pair, 100/100, 80/120, 100 mỗi nhóm, cân bằng nguồn gốc) nhưng
+giữ nguyên toàn bộ phép kiểm nhất quán từng pair, split và họ. Manifest ví dụ
+không phải dataset được nghiệm thu; gate nghiệm thu truyền
+``require_scale=True`` để từ chối thẳng manifest ví dụ, và có thể truyền
+``max_rejection_rate`` để chặn dataset có tỷ lệ loại pair vượt trần.
 
 Pair đã bị loại được ghi ở log top-level ``rejections`` (``pair_id`` + ``reason``)
 và không được đồng thời nằm trong ``pairs``; ``pair_rejection_rate`` tính trên
@@ -49,8 +60,10 @@ __all__ = [
     "GROUP_NUMBERS",
     "GROUP_RULES",
     "GROUP_SIZE",
+    "INSERTION_LOCI",
     "MALWARE_ORIGIN_PAIRS",
     "MIN_JACCARD",
+    "ORIGIN_BALANCE",
     "TEST_PAIRS",
     "TOTAL_PAIRS",
     "DatasetCounts",
@@ -85,6 +98,9 @@ GROUP_NUMBERS = (1, 2, 3, 4)
 CALIBRATION_PAIRS = 80
 TEST_PAIRS = 120
 
+#: Allowlist locus chèn payload (§6.1: chỉ vùng dữ liệu thuần, cấm chạm vùng code).
+INSERTION_LOCI = (".rsrc", "debug", "version", "overlay")
+
 #: Ngưỡng bất biến hành vi động (§6.1): J ≥ 0.95.
 MIN_JACCARD = 0.95
 
@@ -116,6 +132,9 @@ class Split(StrEnum):
     CALIBRATION = "calibration"
     TEST = "test"
 
+
+#: Cân bằng nguồn gốc trong từng split (hardening R06): mỗi split chia đôi benign/malware.
+ORIGIN_BALANCE = {Split.CALIBRATION.value: 40, Split.TEST.value: 60}
 
 #: Bảng nhóm chuẩn hoá §6.1: (origin, vai trò) → (nhóm, GT_Injection, GT_Malware_Behavior).
 GROUP_RULES: dict[tuple[PairOrigin, MemberRole], tuple[int, bool, MalwareBehavior]] = {
@@ -153,6 +172,7 @@ class DatasetCounts(TypedDict):
     pairs: int
     groups: dict[int, int]
     splits: dict[str, int]
+    insertion_loci: dict[str, int]
 
 
 class DatasetValidationReport(TypedDict):
@@ -182,9 +202,18 @@ def load_manifest(path: str | Path) -> object:
         return json.load(handle)
 
 
-def validate_manifest_file(path: str | Path) -> DatasetValidationReport:
-    """Đọc manifest từ đĩa rồi kiểm bằng ``validate_manifest``."""
-    return validate_manifest(load_manifest(path))
+def validate_manifest_file(
+    path: str | Path,
+    *,
+    require_scale: bool = False,
+    max_rejection_rate: float | None = None,
+) -> DatasetValidationReport:
+    """Đọc manifest từ đĩa rồi kiểm bằng ``validate_manifest`` (cùng tham số gate)."""
+    return validate_manifest(
+        load_manifest(path),
+        require_scale=require_scale,
+        max_rejection_rate=max_rejection_rate,
+    )
 
 
 def _error(path: str, reason: str) -> DatasetError:
@@ -208,6 +237,7 @@ def _build_report(
     errors: list[DatasetError],
     groups: dict[int, int],
     splits: dict[str, int],
+    loci: dict[str, int],
     pair_count: int,
     rejections: list[PairRejection],
     accepted_ids: set[str],
@@ -223,6 +253,7 @@ def _build_report(
             pairs=pair_count,
             groups=dict(groups),
             splits=dict(splits),
+            insertion_loci=dict(loci),
         ),
         rejections=rejections,
         pair_rejection_rate=format_metric(len(rejected_ids), len(candidates)),
@@ -262,17 +293,33 @@ def _check_member(
     *,
     role: MemberRole,
     origin: PairOrigin | None,
+    sample_ids: dict[str, str],
     errors: list[DatasetError],
 ) -> tuple[int | None, str | None]:
-    """Kiểm một thành viên pair; trả ``(nhóm, split)`` đã khai để caller kiểm đếm."""
+    """Kiểm một thành viên pair; trả ``(nhóm, split)`` đã khai để caller kiểm đếm.
+
+    ``sample_ids`` là sổ đăng ký toàn manifest (sample_id → path): một mẫu chỉ
+    được xuất hiện một lần, nếu không hai pair có thể trỏ cùng artifact.
+    """
     if not isinstance(member, Mapping):
         errors.append(
             _error(path, f"thành viên pair phải là object, nhận {_type_name(member)}")
         )
         return None, None
 
-    if not _is_text(member.get("sample_id")):
+    sample_id = member.get("sample_id")
+    if not _is_text(sample_id):
         errors.append(_error(f"{path}/sample_id", "thiếu 'sample_id' hoặc sai kiểu"))
+    elif sample_id in sample_ids:
+        errors.append(
+            _error(
+                f"{path}/sample_id",
+                f"'sample_id' {sample_id!r} bị trùng với thành viên ở {sample_ids[sample_id]}",
+            )
+        )
+    else:
+        sample_ids[sample_id] = path
+
     for field in ("sha256", "code_region_sha256"):
         if not _is_text(member.get(field)):
             errors.append(_error(f"{path}/{field}", f"thiếu '{field}' hoặc sai kiểu"))
@@ -431,19 +478,34 @@ def _check_declared_rejections(
 # --- API chính -------------------------------------------------------------
 
 
-def validate_manifest(manifest: object) -> DatasetValidationReport:
+def validate_manifest(
+    manifest: object,
+    *,
+    require_scale: bool = False,
+    max_rejection_rate: float | None = None,
+) -> DatasetValidationReport:
     """Kiểm manifest ghép cặp; trả report có cấu trúc thay vì raise.
 
     Dữ liệu đầu vào là untrusted: mọi sai lệch cấu trúc/nhất quán (§6.1–6.2) trở
     thành một ``{path, reason}`` trong ``errors``; ``ok`` chỉ ``True`` khi
     ``errors`` rỗng. ``counts`` đếm theo khai báo trong manifest (census) để phản
     ánh trung thực dữ liệu nhận vào ngay cả khi manifest sai.
+
+    ``require_scale=True`` dành cho gate nghiệm thu: manifest khai
+    ``example_only`` bị từ chối thay vì bỏ qua các phép kiểm quy mô.
+    ``max_rejection_rate`` (mặc định ``None`` = không giới hạn) chặn dataset có
+    ``pair_rejection_rate`` vượt trần; không đánh giá được khi chưa có pair nào.
     """
     errors: list[DatasetError] = []
     rejections: list[PairRejection] = []
     groups: dict[int, int] = dict.fromkeys(GROUP_NUMBERS, 0)
     splits: dict[str, int] = dict.fromkeys(_SPLITS, 0)
     origins: dict[str, int] = dict.fromkeys(_ORIGINS, 0)
+    origins_by_split: dict[str, dict[str, int]] = {
+        split: dict.fromkeys(_ORIGINS, 0) for split in _SPLITS
+    }
+    loci: dict[str, int] = dict.fromkeys(INSERTION_LOCI, 0)
+    sample_ids: dict[str, str] = {}
     accepted_ids: set[str] = set()
 
     if not isinstance(manifest, Mapping):
@@ -452,6 +514,7 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
             errors=errors,
             groups=groups,
             splits=splits,
+            loci=loci,
             pair_count=0,
             rejections=rejections,
             accepted_ids=accepted_ids,
@@ -459,6 +522,16 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
         )
 
     example_only = manifest.get("example_only") is True
+    enforce_scale = require_scale or not example_only
+
+    if example_only and require_scale:
+        errors.append(
+            _error(
+                "/example_only",
+                "manifest khai 'example_only' — không dùng được cho gate nghiệm thu "
+                "(require_scale=True)",
+            )
+        )
 
     schema_version = manifest.get("schema_version")
     if not _is_text(schema_version):
@@ -480,6 +553,7 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
             errors=errors,
             groups=groups,
             splits=splits,
+            loci=loci,
             pair_count=0,
             rejections=rejections,
             accepted_ids=accepted_ids,
@@ -527,6 +601,29 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
         else:
             pair_split = split_raw
             splits[pair_split] += 1
+            if origin is not None:
+                origins_by_split[pair_split][origin_raw] += 1
+
+        locus = pair.get("insertion_locus")
+        if locus in INSERTION_LOCI:
+            loci[locus] += 1
+        elif locus is None and example_only:
+            pass
+        elif locus is None:
+            errors.append(
+                _error(
+                    f"{path}/insertion_locus",
+                    "pair phải khai 'insertion_locus' trong allowlist §6.1: "
+                    + "|".join(INSERTION_LOCI),
+                )
+            )
+        else:
+            errors.append(
+                _error(
+                    f"{path}/insertion_locus",
+                    f"'insertion_locus' phải thuộc allowlist {INSERTION_LOCI}, nhận {locus!r}",
+                )
+            )
 
         family = pair.get("malware_family")
         if _is_text(family):
@@ -560,10 +657,20 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
             errors.append(_error(f"{path}/source", f"'source' sai kiểu, nhận {pair.get('source')!r}"))
 
         clean_group, clean_split = _check_member(
-            pair.get("clean"), f"{path}/clean", role=MemberRole.CLEAN, origin=origin, errors=errors
+            pair.get("clean"),
+            f"{path}/clean",
+            role=MemberRole.CLEAN,
+            origin=origin,
+            sample_ids=sample_ids,
+            errors=errors,
         )
         injected_group, injected_split = _check_member(
-            pair.get("injected"), f"{path}/injected", role=MemberRole.INJECTED, origin=origin, errors=errors
+            pair.get("injected"),
+            f"{path}/injected",
+            role=MemberRole.INJECTED,
+            origin=origin,
+            sample_ids=sample_ids,
+            errors=errors,
         )
         for group in (clean_group, injected_group):
             if group is not None:
@@ -600,9 +707,20 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
             errors.append(_error(hash_path, reason))
             rejections.append(PairRejection(pair_id=log_id, path=hash_path, reason=reason))
 
+        clean_sha = clean.get("sha256") if isinstance(clean, Mapping) else None
+        injected_sha = injected.get("sha256") if isinstance(injected, Mapping) else None
+        if _is_text(clean_sha) and _is_text(injected_sha) and clean_sha == injected_sha:
+            errors.append(
+                _error(
+                    f"{path}/injected/sha256",
+                    "sha256 của clean và injected không được trùng: payload chưa "
+                    f"được chèn vào artifact ({clean_sha})",
+                )
+            )
+
         _check_invariance(pair, path, log_id, errors, rejections)
 
-    if not example_only:
+    if enforce_scale:
         if len(pairs) != TOTAL_PAIRS:
             errors.append(
                 _error("/pairs", f"manifest phải có {TOTAL_PAIRS} pair, nhận {len(pairs)}")
@@ -646,13 +764,37 @@ def validate_manifest(manifest: object) -> DatasetValidationReport:
                     f"split 'test' phải có {TEST_PAIRS} pair, nhận {splits[Split.TEST.value]}",
                 )
             )
+        for split_name, expected in ORIGIN_BALANCE.items():
+            benign = origins_by_split[split_name][PairOrigin.BENIGN.value]
+            malware = origins_by_split[split_name][PairOrigin.MALWARE.value]
+            if benign != expected or malware != expected:
+                errors.append(
+                    _error(
+                        "/pairs",
+                        f"split '{split_name}' phải cân bằng nguồn gốc: {expected} pair nền "
+                        f"lành tính + {expected} pair nền mã độc, nhận {benign} + {malware}",
+                    )
+                )
 
     _check_declared_rejections(manifest, accepted_ids, errors, rejections)
+
+    rejected_ids = {entry["pair_id"] for entry in rejections}
+    candidate_ids = accepted_ids | rejected_ids
+    if max_rejection_rate is not None and candidate_ids:
+        rate = len(rejected_ids) / len(candidate_ids)
+        if rate > max_rejection_rate:
+            errors.append(
+                _error(
+                    "/rejections",
+                    f"pair_rejection_rate {rate:.6f} vượt trần cho phép {max_rejection_rate}",
+                )
+            )
 
     return _build_report(
         errors=errors,
         groups=groups,
         splits=splits,
+        loci=loci,
         pair_count=len(pairs),
         rejections=rejections,
         accepted_ids=accepted_ids,

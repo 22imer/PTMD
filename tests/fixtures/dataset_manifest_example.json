@@ -1,5 +1,5 @@
 {
-  "note": "Manifest ví dụ về HÌNH DẠNG (6 pair, tự khai example_only) — không phải dataset nghiệm thu: các phép kiểm quy mô (200 pair, 100 pair/nguồn, 100 thành viên/nhóm, 80/120 split) bị bỏ qua; phép kiểm từng pair/split/họ vẫn chạy.",
+  "note": "Manifest ví dụ về HÌNH DẠNG (6 pair, tự khai example_only) — không phải dataset nghiệm thu: các phép kiểm quy mô (200 pair, 100 pair/nguồn, 100 thành viên/nhóm, 80/120 split, cân bằng nguồn gốc mỗi split) bị bỏ qua; phép kiểm từng pair/split/họ vẫn chạy. Gate nghiệm thu phải gọi validate_manifest(require_scale=True).",
   "schema_version": "1.0.0",
   "example_only": true,
   "pairs": [
@@ -9,6 +9,7 @@
       "malware_family": null,
       "payload_family": "Direct override",
       "split": "calibration",
+      "insertion_locus": ".rsrc",
       "source": "synthetic://t09-example",
       "clean": {
         "sample_id": "PAIR-000-CLEAN",
@@ -38,6 +39,7 @@
       "malware_family": "SmokeLoader",
       "payload_family": "False benign claim",
       "split": "calibration",
+      "insertion_locus": "debug",
       "source": "synthetic://t09-example",
       "clean": {
         "sample_id": "PAIR-001-CLEAN",
@@ -67,6 +69,7 @@
       "malware_family": null,
       "payload_family": "Role impersonation",
       "split": "test",
+      "insertion_locus": ".rsrc",
       "source": "synthetic://t09-example",
       "clean": {
         "sample_id": "PAIR-002-CLEAN",
@@ -96,6 +99,7 @@
       "malware_family": "QakBot",
       "payload_family": "Multi-encoding",
       "split": "test",
+      "insertion_locus": "debug",
       "source": "synthetic://t09-example",
       "clean": {
         "sample_id": "PAIR-003-CLEAN",
@@ -125,6 +129,7 @@
       "malware_family": null,
       "payload_family": "Role impersonation",
       "split": "test",
+      "insertion_locus": "version",
       "source": "synthetic://t09-example",
       "clean": {
         "sample_id": "PAIR-004-CLEAN",
@@ -150,27 +155,28 @@
     },
     {
       "pair_id": "PAIR-005",
-      "origin": "malware",
-      "malware_family": "RedLine",
+      "origin": "benign",
+      "malware_family": null,
       "payload_family": "Direct override",
       "split": "calibration",
+      "insertion_locus": "version",
       "source": "synthetic://t09-example",
       "clean": {
         "sample_id": "PAIR-005-CLEAN",
         "sha256": "2b3c154ec6d11f55ed656670985d8f6f1a060f889a33a31b81827b011d170f42",
         "code_region_sha256": "b4179209bf2017fb1564debc5cf4fd83f5dcbae30dc01dc56de3b276cb8e4a8f",
-        "group": 3,
+        "group": 1,
         "GT_Injection": false,
-        "GT_Malware_Behavior": "MALICIOUS",
+        "GT_Malware_Behavior": "BENIGN",
         "split": "calibration"
       },
       "injected": {
         "sample_id": "PAIR-005-INJECTED",
         "sha256": "7d7748bec96bfcf23d90e78c382dde2262cdeac3b71a5fe8fa0ff0276cd75d00",
         "code_region_sha256": "b4179209bf2017fb1564debc5cf4fd83f5dcbae30dc01dc56de3b276cb8e4a8f",
-        "group": 4,
+        "group": 2,
         "GT_Injection": true,
-        "GT_Malware_Behavior": "MALICIOUS",
+        "GT_Malware_Behavior": "BENIGN",
         "split": "calibration"
       },
       "invariance": {

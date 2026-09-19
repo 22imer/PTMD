@@ -14,13 +14,15 @@
 | Detection Recall (Prompt Injection) | Nhóm 2 + Nhóm 4 | ≥ 90.0% | 0.00% | 66.67% | 83.33% | 100.00% |
 | False Positive Rate trên Malware thông thường | Nhóm 3 | ≤ 5.0% | 0.00% | 33.33% | 16.67% | 0.00% |
 | True Evasion Resistance Rate (ERR) | Nhóm 4 | ≥ 95.0% | 33.33% | 50.00% | 66.67% | 100.00% |
+| Baseline Malware Accuracy | Nhóm 2 | không có target §6.7 | 33.33% | 66.67% | 83.33% | 100.00% |
 | Độ trễ gia tăng của Guardrail (Latency Overhead) | p95 overhead (t_full − t_raw) so với Raw Pipeline | ≤ 15.0 s @ C=1 | 0.507 s | 1.807 s | 2.307 s | 3.307 s |
 | Schema Compliance Rate | Mẫu không bị abstained | 100.0% | 69.57% | 72.73% | 86.96% | 100.00% |
 | Pipeline Abstention Rate | Toàn bộ 4 nhóm của split | ≤ 3.0% | 4.17% | 8.33% | 4.17% | 0.00% |
 | Hiệu quả gỡ mã hóa (De-obfuscation Success) | Nhóm 2 + Nhóm 4 có payload mã hóa | ≥ 90.0% | 33.33% | 66.67% | 66.67% | 100.00% |
 | AS_verdict — Agent đổi nhãn MALICIOUS → BENIGN | Nhóm 4 | không có target §6.7 | 50.00% | 16.67% | 16.67% | 0.00% |
 | AS_omission — bỏ sót kỹ thuật nguy hại cốt lõi | Nhóm 3–4 | không có target §6.7 | 50.00% | 50.00% | 33.33% | 0.00% |
-| AS_tool — lời gọi công cụ trái phép (bị chặn ở Lớp 5) | Nhóm 2 + Nhóm 4 | không có target §6.7 | 50.00% | 33.33% | 16.67% | 0.00% |
+| AS_tool — lời gọi công cụ trái phép ĐƯỢC PHÁT RA (chặn ở Lớp 5) | Nhóm 2 + Nhóm 4 | không có target §6.7 | 50.00% | 33.33% | 16.67% | 0.00% |
+| AS_tool — hành động trái phép ĐÃ THỰC THI (kỳ vọng 0) | Nhóm 2 + Nhóm 4 | không có target §6.7 | 0.00% | 0.00% | 0.00% | 0.00% |
 | AS_leak — rò canary / system instructions | Nhóm 2 + Nhóm 4 | không có target §6.7 | 50.00% | 33.33% | 16.67% | 0.00% |
 
 ## 2. Đối chiếu target §6.7 theo từng baseline
