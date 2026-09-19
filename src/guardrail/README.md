@@ -37,16 +37,15 @@ promptware được giữ làm bằng chứng (ADR-0002) và Agent chỉ là Pas
 
 ```text
 CAPEv2 report ─┬─ telemetry ─┐
-artifact bytes ┘             ├─ normalization (Lớp 0) ─┬─ YARA (Lớp 1) ──┐
-CAPA report ─── capa_projection ──────────────────────┴─ Prompt Guard ──┴─ policy gate
-                                                                           │
-                    context (spotlighting) ◄── evidence emission ◄──────────┘
-                              │
-                    Agent (3 tool read-only) ─► report: validate / re-ask ≤2 / abstain
+artifact bytes ┘             ├─ normalization (Lớp 0) ─┬─ YARA (Lớp 1) ───┐
+CAPA report ─── capa_projection ────────────────────────┴─ Prompt Guard ─┴─ policy gate
+                                                                             │
+                      context (spotlighting) ◄── evidence emission ◄──────────┘
+                                │
+                      Agent (3 tool read-only) ─► report: validate / re-ask ≤2 / abstain
 ```
 
-Luồng bắt buộc: **extraction → normalization → detectors → policy → evidence → context → report**;
-Capability Branch độc lập và hội tụ ở policy. Tool result của Agent quay lại đúng ingress policy.
+Luồng bắt buộc: **extraction → normalization → detectors → policy → evidence → context → report**; Capability Branch độc lập, hội tụ ở policy; tool result của Agent quay lại đúng ingress policy.
 
 ## Chạy test
 
@@ -55,25 +54,23 @@ Capability Branch độc lập và hội tụ ở policy. Tool result của Agen
 .venv/bin/python -m pytest tests/evaluation -q   # riêng protocol + harness Phase 3
 ```
 
-Đo coverage cho nhóm module L0–L3 (đúng phạm vi wave hardening L4a):
+Đo coverage cho nhóm module L0–L3:
 
 ```bash
-.venv/bin/python -m pytest tests/test_contracts.py tests/test_extraction.py tests/test_telemetry.py \
-  tests/test_normalization.py tests/test_capa_projection.py tests/test_hardening.py \
-  -q --cov=src/guardrail --cov-report=term-missing
+# phạm vi wave hardening L4a
+.venv/bin/python -m pytest tests/test_contracts.py tests/test_extraction.py tests/test_telemetry.py tests/test_normalization.py \
+  tests/test_capa_projection.py tests/test_hardening.py -q --cov=src/guardrail --cov-report=term-missing
 ```
 
 ## Test seams
 
-- `PromptGuardBackend` là `Protocol` (`prompt_guard.py`): test bơm stub tất định
-  (`StubPromptGuardBackend` trong `tests/test_pipeline.py`, `tests/test_e2e_adversarial.py`;
-  `FakeBackend`/`FakeClock` trong `tests/test_prompt_guard.py`) — không cần model/tokenizer.
+- `PromptGuardBackend` là `Protocol` (`prompt_guard.py`): test bơm stub tất định — `StubPromptGuardBackend`
+  (`tests/test_pipeline.py`, `tests/test_e2e_adversarial.py`), `FakeBackend`/`FakeClock` (`tests/test_prompt_guard.py`).
 - `run_pipeline(..., backend=None)` ⇒ detector `META_PROMPT_GUARD` ghi `errored` ⇒ `INCONCLUSIVE`.
 - `agent_stub=` nhận callable theo `AgentRequest`; mặc định `SimulatedAgent` (xem WARNING bên dưới).
 - `scanner=` cho phép bơm `YaraScanner` lỗi để chạm nhánh coverage `PARTIAL`/`FAILED`.
 - `dispatcher_store=`, `canaries=`, `prompt_guard_config=`, `prompt_guard_budget=` cho các nhánh Lớp 5.
-- Fixture: `tests/fixtures/cape_report_sample_harmless.json`, `..._edge_cases.json`,
-  `capa_report_sample_harmless.json`, `capa_rd_real_small.json`, `dataset_manifest_example.json`.
+- Fixture: `tests/fixtures/` — CAPE `cape_report_sample_harmless.json`/`cape_report_sample_edge_cases.json`, CAPA `capa_report_sample_harmless.json`/`capa_rd_real_small.json`, `dataset_manifest_example.json`.
 - Smoke model thật (opt-in): đặt `GUARDRAIL_PROMPT_GUARD_SMOKE=1` (xem mục blocked).
 
 ## Artifacts
@@ -82,8 +79,7 @@ Capability Branch độc lập và hội tụ ở policy. Tool result của Agen
 |---|---|
 | `schemas/` | `quarantined_evidence.schema.json` (§4.1), `final_report.schema.json` (§4.2) — Draft-07. |
 | `rules/` | `promptware.yar` (tĩnh, luôn biên dịch được), `promptware_cuckoo.yar` (cần module Cuckoo). |
-| `reports/` | `phase0-gate.json`, `integration-pin.json`, `environment.json`, `coverage.json`, |
-| | `evaluation_{results,summary}.synthetic-example.*` (số liệu tổng hợp, **không** phải benchmark). |
+| `reports/` | `phase0-gate.json`, `integration-pin.json`, `environment.json`, `coverage.json`, `evaluation_{results,summary}.synthetic-example.*` (số liệu tổng hợp, **không** phải benchmark). |
 
 ## Known blocked
 
@@ -93,9 +89,7 @@ Capability Branch độc lập và hội tụ ở policy. Tool result của Agen
 - **Module Cuckoo không có trong build YARA local**: `probe_cuckoo_capability()` trả
   `available=False`, cờ `cuckoo_unavailable`; `scan_cape_report` trả `PARTIAL` + `ScanError`
   (`CAPABILITY`), không fallback ngầm (spec §3.2.2).
-- **Benchmark thực nghiệm cần lab/dataset**: chưa có `reports/dataset_manifest.json`,
-  `reports/split_manifest.json`, `reports/evaluation_results.json` — T09/T10 xong phần protocol
-  + harness, phần đo bị chặn.
+- **Benchmark thực nghiệm cần lab/dataset**: chưa có `dataset_manifest.json`/`split_manifest.json`/`evaluation_results.json` trong `reports/` — T09/T10 xong protocol + harness, phần đo bị chặn.
 
 ## WARNING — `SimulatedAgent` chỉ dành cho dev/test
 
