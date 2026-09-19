@@ -476,8 +476,19 @@ class YaraScanner:
         for payload, item_provenance, item_chain in zip(
             payloads, provenance, transform_chain, strict=True
         ):
+            # yara-python tự encode `str` sang UTF-8; chuỗi chứa lone surrogate
+            # (giá trị JSON escape "\ud800" trong report CAPEv2 — đầu vào hợp lệ ở
+            # pha trích xuất) làm encode mặc định ném UnicodeEncodeError và giết
+            # cả lượt quét. `surrogatepass` giữ nguyên byte của mọi chuỗi hợp lệ và
+            # vẫn quét được phần ASCII (regex ruleset chỉ dùng ASCII), nên không
+            # tạo kẽ hở "crash để im lặng" mà spec §3.5.1 cấm.
+            data = (
+                payload.encode("utf-8", "surrogatepass")
+                if isinstance(payload, str)
+                else payload
+            )
             try:
-                matches = self.rules.match(data=payload)
+                matches = self.rules.match(data=data)
             except yara.Error as exc:
                 errors.append(
                     _error(ScanErrorKind.SCAN_ERROR, self.rules_path, str(exc))
