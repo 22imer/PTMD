@@ -86,3 +86,8 @@
 **Bài học:** Supervisor trả PASS kèm residuals đánh số (W-1..4, R1..R12) là đầu ra chuẩn, không phải "xong": Mục F PASS tooling nhưng PARTIAL empirical (thiếu dataset/lab); residuals kiểu tooling phải vào loop-2 ngay, residuals kiểu empirical phải ghi blocked rõ.
 **Bằng chứng:** muc-f-sup 12 residuals; loop-2 giao lại t09; W-2 được đóng bằng fix + regression.
 **Quy tắc:** Mỗi residual có ID + severity + fix và được theo dõi trong todo; phân loại "tooling-closeable" vs "external-blocked" trước khi tuyên bố trạng thái mục.
+
+## LL-018 · 2026-09-19 · sanitizer/validator
+**Bài học:** Bộ làm sạch/lọc phải đối xứng theo CẤU TRÚC, không chỉ theo giá trị: CanaryVerifier quét value mà bỏ qua mapping KEY → canary lọt dưới dạng khóa (verify({CANARY:'v'}) → released=True); và tham số cấu hình không validate ('' trong system_markers) gây vòng lặp vô hạn ở `_replace_case_insensitive('abc','')`.
+**Bằng chứng:** muc-e-sup R1/R2 (medium/low); fix commit theo sau — sanitize keys qua cùng đường `_sanitize_text` + guard needle rỗng 2 lớp (constructor + hàm).
+**Quy tắc:** Khi viết sanitizer/redactor: xử lý cả key lẫn value của mọi mapping (kể cả trong list), kiểm trùng sau redaction; mọi tham số cấu hình chuỗi phải validate non-empty trước khi dùng; test boundary rỗng thuộc bộ chuẩn.
