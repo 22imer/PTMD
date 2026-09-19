@@ -4,7 +4,7 @@ Cổng kiểm output Lớp 5 gồm ba lớp độc lập, không lớp nào thay
 
 1. **Structural validation** — JSON Schema Draft-07 ``schemas/final_report.schema.json``
    qua ``jsonschema``. Đây là validator được ghim của prototype: **Guardrails AI
-   được hoãn có chủ ý** (không thêm dependency mới; xem ``docs``/báo cáo T08), và
+   được hoãn có chủ ý** (xem ``docs/adr/0004-jsonschema-as-report-validator.md``), và
    schema §4.2 do T00 hoàn thiện chính là contract mà Guardrails AI sẽ bọc lại sau.
 2. **Reference validation** — mọi ``evidence_id`` trong report phải tồn tại trong
    kho evidence **cùng artifact**; tham chiếu treo là lỗi validation, không phải

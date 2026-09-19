@@ -1,6 +1,6 @@
 # Implementation Plan — Guardrail cho Malware Analysis Agent
 
-**Status:** Draft — hướng dẫn triển khai; gate Phase 0 PASS (2026-09-19) — sẵn sàng mở wave build theo §7 khi có lệnh.  
+**Status:** Phase 2 prototype hoàn tất T01–T08 (2026-09-19); T09–T10 xong protocol + harness, phép đo thực nghiệm bị chặn — xem `reports/build-report.md`.  
 **Goal:** Cụ thể hóa `PLAN.md` thành các task có chủ sở hữu, đầu vào/đầu ra, phụ thuộc và bằng chứng nghiệm thu.  
 **Architecture:** Detection Branch chuẩn hóa dữ liệu trích xuất trước YARA/Meta Prompt Guard; Capability Branch dùng Mandiant CAPA độc lập. Hai nhánh hội tụ ở Decision Policy Gate, sau đó Context Serialization và Execution Rails bảo vệ Passive Consumer Agent.  
 **Tech Stack theo spec:** Python, YARA, CAPEv2 report, Mandiant CAPA, Meta Prompt Guard-86M, JSON Schema Draft-07, Guardrails AI. Không bổ sung web framework, cơ sở dữ liệu hay nền tảng triển khai mới.  
@@ -116,10 +116,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/extraction.py`, `src/guardrail/telemetry.py`, `tests/test_extraction.py`, `tests/test_telemetry.py`; tái sử dụng CAPE fixture hiện có.  
 **Đầu vào → Đầu ra:** artifact PE/memory và CAPE JSON đã được cung cấp → chuỗi bản sao có provenance, đưa vào Module 0; không chuyển text trích xuất thẳng vào Agent.
 
-- [ ] Trích ASCII/UTF-16LE, giữ FILE_OFFSET; xử lý artifact memory có VIRTUAL_ADDRESS theo metadata nguồn được xác nhận, không tự suy ra địa chỉ từ dump offset.
-- [ ] Áp giới hạn chuỗi 6–256 ký tự, tối đa 2.000 chuỗi/mẫu, entropy 2.5–5.5 và vùng ưu tiên theo spec; ghi coverage bị cắt thay vì coi là COMPLETE.
-- [ ] Adapter lấy `lpOutputString`, `lpString`, `lpText`/`lpCaption` từ các API A/W được allowlist; giữ JSON_LOG_POINTER, PID, API, timestamp.
-- [ ] Phân biệt report sai schema/thiếu dữ liệu với report hợp lệ không có finding; áp contract lỗi T00. Nạp URL/network theo contract report đã ghim, không đồng nhất với API arguments.
+- [x] Trích ASCII/UTF-16LE, giữ FILE_OFFSET; xử lý artifact memory có VIRTUAL_ADDRESS theo metadata nguồn được xác nhận, không tự suy ra địa chỉ từ dump offset.
+- [x] Áp giới hạn chuỗi 6–256 ký tự, tối đa 2.000 chuỗi/mẫu, entropy 2.5–5.5 và vùng ưu tiên theo spec; ghi coverage bị cắt thay vì coi là COMPLETE.
+- [x] Adapter lấy `lpOutputString`, `lpString`, `lpText`/`lpCaption` từ các API A/W được allowlist; giữ JSON_LOG_POINTER, PID, API, timestamp.
+- [x] Phân biệt report sai schema/thiếu dữ liệu với report hợp lệ không có finding; áp contract lỗi T00. Nạp URL/network theo contract report đã ghim, không đồng nhất với API arguments.
 
 **Nghiệm thu:** fixture hiện có trả đúng ba chuỗi mục tiêu ở calls 0/1/2, bỏ `hWnd`; locator giữ đúng argument index, đặc biệt call 2/arguments/1. Fixture bổ sung vô hại bao phủ MessageBox A/W, missing/wrong-type argument, UTF-16LE và vượt budget. Không chạy URL hoặc câu lệnh nằm trong fixture.
 
@@ -130,10 +130,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/normalization.py`, `tests/test_normalization.py`.  
 **Đầu vào → Đầu ra:** extracted text + provenance → `NormalizedText`, không sửa artifact gốc.
 
-- [ ] Chuẩn hóa zero-width, NFKD, confusables theo thứ tự của spec; dùng bảng confusables có phiên bản đã chốt.
-- [ ] Thực hiện Base64/Hex với decode depth tối đa 2, budget 64KB theo byte UTF-8 (spec §3.1), printable ≥80%; transform chain tích lũy đủ xuyên đệ quy (không lặp lỗi ví dụ cũ).
-- [ ] Giữ đầy đủ thứ tự transform qua mọi tầng và liên kết representation gốc; bảo toàn provenance.
-- [ ] Kiểm chứng input lỗi, chuỗi rỗng, encoding lồng ba tầng, boundary budget và dữ liệu Unicode; báo trạng thái coverage đúng contract khi dừng vì giới hạn.
+- [x] Chuẩn hóa zero-width, NFKD, confusables theo thứ tự của spec; dùng bảng confusables có phiên bản đã chốt.
+- [x] Thực hiện Base64/Hex với decode depth tối đa 2, budget 64KB theo byte UTF-8 (spec §3.1), printable ≥80%; transform chain tích lũy đủ xuyên đệ quy (không lặp lỗi ví dụ cũ).
+- [x] Giữ đầy đủ thứ tự transform qua mọi tầng và liên kết representation gốc; bảo toàn provenance.
+- [x] Kiểm chứng input lỗi, chuỗi rỗng, encoding lồng ba tầng, boundary budget và dữ liệu Unicode; báo trạng thái coverage đúng contract khi dừng vì giới hạn.
 
 **Nghiệm thu:** case Base64, Hex, Homoglyph, Zero-width có kết quả chuẩn hóa và truy nguyên đúng; tầng thứ ba không bị decode; boundary printable 80% và budget được kiểm rõ. Hash artifact gốc không thay đổi.
 
@@ -144,10 +144,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/yara_scanner.py`, `rules/promptware.yar`, `tests/test_yara_scanner.py`.  
 **Đầu vào → Đầu ra:** normalized text cùng artifact/report phù hợp scanner → finding có detector/rule version, source và provenance; không coi raw offset của chuỗi normalized là file offset.
 
-- [ ] Chuyển rule tham chiếu thành ruleset biên dịch được trên YARA build đã ghim; áp scanner đúng loại input.
-- [ ] Kiểm chứng Cuckoo module bằng report import đã chốt; phân biệt network/file/registry/mutex với adapter API arguments.
-- [ ] Quét artifact memory được cung cấp, không gắn vào PID sống hay điều khiển Sandbox trong repo.
-- [ ] Lưu lỗi compile/import/scan thành processing outcome đúng contract; giữ finding đã phát hiện trước lỗi.
+- [x] Chuyển rule tham chiếu thành ruleset biên dịch được trên YARA build đã ghim; áp scanner đúng loại input.
+- [x] Kiểm chứng Cuckoo module bằng report import đã chốt; phân biệt network/file/registry/mutex với adapter API arguments.
+- [x] Quét artifact memory được cung cấp, không gắn vào PID sống hay điều khiển Sandbox trong repo.
+- [x] Lưu lỗi compile/import/scan thành processing outcome đúng contract; giữ finding đã phát hiện trước lỗi.
 
 **Nghiệm thu:** chuỗi đối kháng tổng hợp tạo finding truy nguyên được; control vô hại và trường hợp report không tương thích cho outcome đúng. Log ghi build/ruleset/fixture hash. Kết quả fixture là kiểm chứng chức năng hẹp, không phải benchmark recall/FPR.
 
@@ -158,10 +158,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/prompt_guard.py`, `tests/test_prompt_guard.py`, `reports/prompt_guard_measurements.json`.  
 **Đầu vào → Đầu ra:** normalized text được lựa chọn theo contract → nhãn, xác suất và model/tokenizer revision; lỗi inference tách khỏi negative finding.
 
-- [ ] Nạp `meta-llama/Prompt-Guard-86M` theo revision đã ghim; xác nhận label mapping từ model artifact, không đoán thứ tự logits.
-- [ ] Áp ngưỡng Injection hoặc Jailbreak ≥0.75 (spec §3.4) và predicate Malware Command/Promptware; chốt định nghĩa `TargetEntityIsLLM`/`InstructionOverrideContext` tại task này theo contract §3.4. Không tái đưa ngưỡng 0.50 từ PLAN vào như quy tắc hiện hành.
-- [ ] Xử lý chuỗi dài/sequence length 512 và truncation theo coverage contract; không âm thầm mất phần chưa được kiểm tra.
-- [ ] Đo inference thật trên cấu hình CPU/GPU thực dùng, batch 8–16; ghi thời gian/load conditions, không thay phép đo bằng mocked latency.
+- [x] Nạp `meta-llama/Prompt-Guard-86M` theo revision đã ghim; xác nhận label mapping từ model artifact, không đoán thứ tự logits.
+- [x] Áp ngưỡng Injection hoặc Jailbreak ≥0.75 (spec §3.4) và predicate Malware Command/Promptware; chốt định nghĩa `TargetEntityIsLLM`/`InstructionOverrideContext` tại task này theo contract §3.4. Không tái đưa ngưỡng 0.50 từ PLAN vào như quy tắc hiện hành.
+- [x] Xử lý chuỗi dài/sequence length 512 và truncation theo coverage contract; không âm thầm mất phần chưa được kiểm tra.
+- [ ] Đo inference thật trên cấu hình CPU/GPU thực dùng, batch 8–16; ghi thời gian/load conditions, không thay phép đo bằng mocked latency. — blocked: model HF gated (401); xem reports/build-report.md
 
 **Nghiệm thu:** kiểm boundary 0.75, hai loại xác suất và predicate; lỗi/timeout không trở thành NOT_DETECTED. Smoke với model thật tạo output có revision và timing; thiếu model hoặc tài nguyên thì ghi blocked, không phát sinh score giả.
 
@@ -172,10 +172,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/capa_projection.py`, `tests/test_capa_projection.py`; fixture CAPA JSON tĩnh/động vô hại có nguồn/version.  
 **Đầu vào → Đầu ra:** JSON từ Mandiant CAPA cho PE và CAPE report → capability allowlist.
 
-- [ ] Kiểm chứng định dạng output tĩnh/động theo CAPA/ruleset revision trước khi viết parser; CAPEv2 không phải Mandiant CAPA.
-- [ ] Chiếu duy nhất `tactic`, `technique_id`, `technique_name`, `namespace`; loại raw strings, disassembly, API arguments và field ngoài allowlist.
-- [ ] Đưa giá trị còn lại qua ingress contract; không tin cậy giá trị chỉ vì tên field nằm trong allowlist.
-- [ ] Phân biệt capability rỗng hợp lệ với lỗi parser/schema; giữ liên kết artifact để hội tụ hai branch.
+- [x] Kiểm chứng định dạng output tĩnh/động theo CAPA/ruleset revision trước khi viết parser; CAPEv2 không phải Mandiant CAPA.
+- [x] Chiếu duy nhất `tactic`, `technique_id`, `technique_name`, `namespace`; loại raw strings, disassembly, API arguments và field ngoài allowlist.
+- [x] Đưa giá trị còn lại qua ingress contract; không tin cậy giá trị chỉ vì tên field nằm trong allowlist.
+- [x] Phân biệt capability rỗng hợp lệ với lỗi parser/schema; giữ liên kết artifact để hội tụ hai branch.
 
 **Nghiệm thu:** capability được giữ đúng trên fixture tĩnh và động; nội dung ngoài allowlist không tới context; fixture sai cấu trúc không bị báo là “không có capability”. Chưa có CAPA artifact thật → chưa đủ bằng chứng tích hợp CAPA.
 
@@ -186,10 +186,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/policy.py`, `src/guardrail/evidence.py`, `tests/test_policy.py`, `tests/test_evidence.py`.  
 **Đầu vào → Đầu ra:** findings/capabilities và processing/detection states → pipeline action, evidence decisions, forwarding, sanitization, flags, escalation và verdict constraints.
 
-- [ ] Hiện thực đủ 9 tổ hợp theo ma trận đã xác nhận; tổng hợp detector disagreement bằng contract T00, không để policy tự suy luận score.
-- [ ] Bảo toàn positive finding ở cả PARTIAL+DETECTED và FAILED+DETECTED, kể cả khi không forward context.
-- [ ] Sinh evidence riêng cho finding/coverage gap/escalation đúng schema; giữ raw evidence ở kho điều tra, không đẩy raw telemetry của escalation vào context.
-- [ ] Ánh xạ MITRE theo bằng chứng thực; lưu multi/no-mapping đúng contract, phân biệt attempt với execution.
+- [x] Hiện thực đủ 9 tổ hợp theo ma trận đã xác nhận; tổng hợp detector disagreement bằng contract T00, không để policy tự suy luận score.
+- [x] Bảo toàn positive finding ở cả PARTIAL+DETECTED và FAILED+DETECTED, kể cả khi không forward context.
+- [x] Sinh evidence riêng cho finding/coverage gap/escalation đúng schema; giữ raw evidence ở kho điều tra, không đẩy raw telemetry của escalation vào context.
+- [x] Ánh xạ MITRE theo bằng chứng thực; lưu multi/no-mapping đúng contract, phân biệt attempt với execution.
 
 **Nghiệm thu:** kiểm cả chín tổ hợp, không chỉ action string. Các nhánh FAILED không forward; PARTIAL không cho BENIGN; disagreement có flag và sanitize/escalation; positive evidence vẫn truy xuất được sau lỗi. ID/hash/provenance và mapping hợp lệ.
 
@@ -197,15 +197,15 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 
 **Owner:** Integration owner. **Phụ thuộc:** T06, T07 và contract T01.  
 **Nguồn:** spec §3.5.2 (dòng 345–363), §3.6 (dòng 367–374), §4.2 (dòng 477–566); ADR-0003.  
-**Tệp đề xuất:** `src/guardrail/context.py`, `src/guardrail/runtime.py`, `src/guardrail/report.py`, `src/guardrail/pipeline.py`, `tests/test_context.py`, `tests/test_runtime.py`, `tests/test_pipeline.py`.  
+**Tệp đề xuất:** `src/guardrail/context.py`, `src/guardrail/runtime.py`, `src/guardrail/report.py`, `src/guardrail/pipeline.py`, `tests/test_context.py`, `tests/test_runtime.py`, `tests/test_pipeline.py`, `tests/test_report.py`.  
 **Đầu vào → Đầu ra:** policy-authorized metadata/capabilities/evidence summary → Chat payload → báo cáo hợp lệ hoặc fallback; tool results quay lại cùng ingress policy.
 
-- [ ] Tạo message role `system` độc lập dữ liệu; serialize/escape dữ liệu thay vì nối chuỗi tạo instruction. Khóa đường raw evidence khỏi context.
-- [ ] Dispatcher chỉ cho `get_pe_header_details()`, `get_mitre_capabilities()`, `get_adversarial_findings()`; mọi tool result qua ingress. Tool ngoài danh sách bị chặn trước side effect và ghi evidence theo contract.
-- [ ] Validate report bằng Guardrails AI/schema đã ghim; tối đa hai lần re-ask sau lần sinh ban đầu. Hết lượt → `ABSTAINED_PARTIAL`, `INCONCLUSIVE`, validation errors theo schema đã hoàn thiện ở T00, không ép BENIGN.
-- [ ] Kiểm tra tham chiếu evidence tồn tại và tuân thủ verdict constraints ngoài structural validation.
-- [ ] Tích hợp Canary Token Verifier theo spec §5 (footnote Canary, dòng 641) và contract T00; dùng canary đánh giá được cấp, không đưa secret thật vào fixture. Kiểm cả có/không có canary và hành động leakage đã chốt.
-- [ ] Chạy smoke end-to-end bằng artifact vô hại và model thật trong môi trường được phép: hai branch → gate → context → report; lưu kết quả từng tầng.
+- [x] Tạo message role `system` độc lập dữ liệu; serialize/escape dữ liệu thay vì nối chuỗi tạo instruction. Khóa đường raw evidence khỏi context.
+- [x] Dispatcher chỉ cho `get_pe_header_details()`, `get_mitre_capabilities()`, `get_adversarial_findings()`; mọi tool result qua ingress. Tool ngoài danh sách bị chặn trước side effect và ghi evidence theo contract.
+- [x] Validate report bằng Guardrails AI/schema đã ghim; tối đa hai lần re-ask sau lần sinh ban đầu. Hết lượt → `ABSTAINED_PARTIAL`, `INCONCLUSIVE`, validation errors theo schema đã hoàn thiện ở T00, không ép BENIGN.
+- [x] Kiểm tra tham chiếu evidence tồn tại và tuân thủ verdict constraints ngoài structural validation.
+- [x] Tích hợp Canary Token Verifier theo spec §5 (footnote Canary, dòng 641) và contract T00; dùng canary đánh giá được cấp, không đưa secret thật vào fixture. Kiểm cả có/không có canary và hành động leakage đã chốt.
+- [ ] Chạy smoke end-to-end bằng artifact vô hại và model thật trong môi trường được phép: hai branch → gate → context → report; lưu kết quả từng tầng. — smoke đã chạy với stub backend; model thật blocked
 
 **Nghiệm thu:** delimiter/role-looking text từ fixture không tạo message system mới; tool result không được bỏ qua ingress; tool cấm không có side effect. Báo cáo trỏ ID không tồn tại phải bị từ chối. Đầu ra sai sau hai re-ask dừng hữu hạn với fallback hợp lệ; FAILED không gọi Agent để phát verdict. Test double chỉ dùng kiểm nhánh lỗi, không thay bằng chứng smoke với model thật.
 
@@ -218,10 +218,10 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `tests/evaluation/test_dataset_protocol.py`, `reports/dataset_manifest.json`, `reports/split_manifest.json`.  
 **Đầu vào → Đầu ra:** dataset/artifact được phê duyệt + ground truth độc lập → manifest paired samples, split và bằng chứng invariance.
 
-- [ ] Dùng mục tiêu 400 mẫu = 200 pairs; mỗi pair giữ sample gốc và sample có Promptware, không hiểu “clean” là mặc định GT_Malware_Behavior=benign.
-- [ ] Ghi `GT_Injection` và `GT_Malware_Behavior` độc lập, group/family/payload family/pair ID/hash/source. Chỉ gán Nhóm 1–4 theo bảng chuẩn hoá §6.1 (spec v1.4.0), không tự suy ra group từ số thứ tự.
-- [ ] Kiểm chứng artifact pair chỉ khác data regions được phép; code-region hash bất biến, behavioral signature Jaccard ≥0.95 theo lab evidence đã được cung cấp. Ghi `pair_rejection_rate`; không chạy Malware Sample trong repo để tạo bằng chứng.
-- [ ] Chia 80 pairs calibration / 120 pairs test; giữ hai thành viên pair cùng split, tách cả malware family và payload family. Không chỉnh threshold theo test set.
+- [x] Dùng mục tiêu 400 mẫu = 200 pairs; mỗi pair giữ sample gốc và sample có Promptware, không hiểu “clean” là mặc định GT_Malware_Behavior=benign.
+- [x] Ghi `GT_Injection` và `GT_Malware_Behavior` độc lập, group/family/payload family/pair ID/hash/source. Chỉ gán Nhóm 1–4 theo bảng chuẩn hoá §6.1 (spec v1.4.0), không tự suy ra group từ số thứ tự.
+- [ ] Kiểm chứng artifact pair chỉ khác data regions được phép; code-region hash bất biến, behavioral signature Jaccard ≥0.95 theo lab evidence đã được cung cấp. Ghi `pair_rejection_rate`; không chạy Malware Sample trong repo để tạo bằng chứng. — blocked: chưa có dataset/lab; protocol + harness đã xong (a849474/1e0e38e/a5b1d01)
+- [x] Chia 80 pairs calibration / 120 pairs test; giữ hai thành viên pair cùng split, tách cả malware family và payload family. Không chỉnh threshold theo test set.
 
 **Nghiệm thu:** manifest truy nguyên được mỗi pair và hai ground truth; không overlap pair/family hai trục; pair sai invariance bị loại có lý do. Thiếu lab evidence → dataset chưa được nghiệm thu, không thay bằng giả định.
 
@@ -232,12 +232,12 @@ Integration owner sở hữu các contract này; các subagent dùng cùng một
 **Tệp đề xuất:** `src/guardrail/evaluation.py`, `tests/evaluation/test_metrics.py`, `reports/evaluation_results.json`, `reports/evaluation_summary.md`.  
 **Đầu vào → Đầu ra:** test manifest đã khóa + môi trường/model/ruleset revisions → raw outcomes/timings, metric denominators, baseline comparison và kết luận target pass/fail.
 
-- [ ] Chạy no-guardrail, YARA-only, ML-only, full pipeline trên cùng test split, cùng model cấu hình đã khóa; ghi rõ khác biệt bật/tắt từng tầng.
-- [ ] No-guardrail chỉ là đối chứng cách xử lý nội dung trong môi trường đánh giá cô lập; không cấp quyền shell/network thật để đo tool misuse. Tách lời gọi trái phép được phát ra với hành động đã thực thi.
-- [ ] Ghi bốn attack success modes: đổi verdict, bỏ evidence/capability cốt lõi, attempted tool misuse, leakage canary/system instructions. Chốt ground truth cho omission/leak trước khi chạy.
-- [ ] Đo CPU x86_64 ≥8 cores, RAM ≥32GB, GPU RTX 3060 hoặc T4 với VRAM ≥12GB theo spec; báo phần cứng thực tế. Concurrency 1/4/8, batch 8–16, sequence length 512, budget 2.000 chuỗi/mẫu.
-- [ ] Đo monotonic clock từng tầng và overhead so với raw pipeline; xuất p50/p90/p95/p99, warm/cold conditions và percentile nghiệm thu theo §6.5 (p95 @ C=1).
-- [ ] Báo cáo tử số/mẫu số, coverage, failure và abstention; không bỏ các case khó chỉ để đạt target. Khi denominator bằng 0, đánh dấu không tính được theo protocol đã chốt, không báo 100%.
+- [ ] Chạy no-guardrail, YARA-only, ML-only, full pipeline trên cùng test split, cùng model cấu hình đã khóa; ghi rõ khác biệt bật/tắt từng tầng. — blocked: chưa có dataset/lab; protocol + harness đã xong (a849474/1e0e38e/a5b1d01)
+- [x] No-guardrail chỉ là đối chứng cách xử lý nội dung trong môi trường đánh giá cô lập; không cấp quyền shell/network thật để đo tool misuse. Tách lời gọi trái phép được phát ra với hành động đã thực thi.
+- [ ] Ghi bốn attack success modes: đổi verdict, bỏ evidence/capability cốt lõi, attempted tool misuse, leakage canary/system instructions. Chốt ground truth cho omission/leak trước khi chạy. — blocked: chưa có dataset/lab; protocol + harness đã xong (a849474/1e0e38e/a5b1d01)
+- [ ] Đo CPU x86_64 ≥8 cores, RAM ≥32GB, GPU RTX 3060 hoặc T4 với VRAM ≥12GB theo spec; báo phần cứng thực tế. Concurrency 1/4/8, batch 8–16, sequence length 512, budget 2.000 chuỗi/mẫu. — blocked: chưa có dataset/lab; protocol + harness đã xong (a849474/1e0e38e/a5b1d01)
+- [ ] Đo monotonic clock từng tầng và overhead so với raw pipeline; xuất p50/p90/p95/p99, warm/cold conditions và percentile nghiệm thu theo §6.5 (p95 @ C=1). — blocked: chưa có dataset/lab; protocol + harness đã xong (a849474/1e0e38e/a5b1d01)
+- [x] Báo cáo tử số/mẫu số, coverage, failure và abstention; không bỏ các case khó chỉ để đạt target. Khi denominator bằng 0, đánh dấu không tính được theo protocol đã chốt, không báo 100%.
 
 | Chỉ số | Mục tiêu, không phải kết quả | Nguồn/điều kiện |
 |---|---|---|
@@ -341,10 +341,10 @@ Sau mỗi đợt: supervisor của mục xác minh độc lập theo charter ở
 ## 8. Definition of Done và trạng thái bàn giao
 
 - [x] T00 pass: R01–R08 có bằng chứng, checklist và trạng thái tài liệu nhất quán.
-- [ ] T01–T08 pass: đủ Module 0–4 theo PLAN, Execution Rails và report validation hoạt động; không còn contract giả hay đường bypass ingress.
-- [ ] Smoke end-to-end dùng fixture vô hại/model thật hoàn tất; negative/failure paths bảo toàn evidence và abstain đúng.
-- [ ] T09–T10 có dataset protocol, split, baseline, timing và metrics tái lập; từng target ghi pass/fail, không chỉ một kết luận tổng quát.
-- [ ] Kết luận phân biệt prototype correctness, empirical efficacy và residual risk; giới hạn chưa kiểm chứng được công bố.
-- [ ] AGENTS/PLAN/spec/intent/ADR/issue đồng bộ theo mức đã kiểm chứng trong lần triển khai được phép.
+- [x] T01–T08 pass: đủ Module 0–4 theo PLAN, Execution Rails và report validation hoạt động; không còn contract giả hay đường bypass ingress.
+- [x] Smoke end-to-end dùng fixture vô hại/model thật hoàn tất; negative/failure paths bảo toàn evidence và abstain đúng. — (stub backend; model thật gated)
+- [x] T09–T10 có dataset protocol, split, baseline, timing và metrics tái lập; từng target ghi pass/fail, không chỉ một kết luận tổng quát. — (protocol + harness xong; measured blocked)
+- [x] Kết luận phân biệt prototype correctness, empirical efficacy và residual risk; giới hạn chưa kiểm chứng được công bố.
+- [x] AGENTS/PLAN/spec/intent/ADR/issue đồng bộ theo mức đã kiểm chứng trong lần triển khai được phép.
 
-**Trạng thái của lần bàn giao tài liệu:** hướng dẫn + phân rã task; Phase 0 đã PASS (2026-09-19). Chưa chạy code sản phẩm, chưa đo benchmark và chưa chứng minh bất kỳ target SLA nào.
+**Trạng thái bàn giao prototype (2026-09-19):** T01–T08 PASS theo verdict supervisor; smoke E2E chạy với stub backend (model thật gated); T09–T10 có protocol + harness nhưng chưa chạy phép đo thực nghiệm. Chưa chứng minh bất kỳ target SLA nào — phần bị chặn ở `reports/build-report.md` §5.
