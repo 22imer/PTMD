@@ -91,13 +91,17 @@ Kẻ tấn công thường che giấu câu lệnh Prompt Injection bằng Packer
 
 ---
 
-### 2.3 Meta Prompt Guard (Prompt-Guard-86M) & Llama Guard
-- **Model trên Hugging Face**: [https://huggingface.co/meta-llama/Prompt-Guard-86M](https://huggingface.co/meta-llama/Prompt-Guard-86M)
+### 2.3 Meta Prompt Guard (Prompt-Guard-86M / Prompt Guard 2) & Llama Guard
+- **Prompt-Guard-86M (v1, model tham chiếu của spec §3.4)**: [https://huggingface.co/meta-llama/Prompt-Guard-86M](https://huggingface.co/meta-llama/Prompt-Guard-86M)
+  — gated; tại 2026-09-21 API trả **403** `awaiting a review from the repo authors` ⇒ chưa lấy được weight.
+- **Llama-Prompt-Guard-2-86M (v2)**: [https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M](https://huggingface.co/meta-llama/Llama-Prompt-Guard-2-86M)
+  — revision `a8ded8e697ce7c355e395a0df51f94adb4a2fd27`; license *Llama 4 Community License*; tải được (đã có bản local, xem `README.md` §7 mục 8).
 - **Kho mã nguồn Llama Guard**: [https://github.com/meta-llama/llama-guard](https://github.com/meta-llama/llama-guard)
 - **Mô tả kỹ thuật**:
-  - **Prompt-Guard-86M**: Mô hình phân loại sequence cực nhẹ (~86 triệu tham số) dựa trên kiến trúc DeBERTa-v2, được huấn luyện chuyên biệt để phát hiện 2 nhãn: *Direct Prompt Injection* và *Jailbreak*.
+  - **Prompt-Guard-86M (v1)**: Mô hình phân loại sequence cực nhẹ (~86 triệu tham số) dựa trên kiến trúc DeBERTa-v2, huấn luyện chuyên biệt để phát hiện 2 nhãn: *Direct Prompt Injection* và *Jailbreak*.
+  - **Llama-Prompt-Guard-2-86M (v2)**: Cùng họ backbone mDeBERTa-v3 ~86M tham số backbone (checkpoint phát hành 278.810.882 tham số, do vocab 251k) nhưng **phân loại nhị phân** (*benign* / *malicious*); model card Meta ghi rõ **bỏ nhãn `INJECTION`** ("No injection sub-labels"), ngữ cảnh 512 token, hỗ trợ đa ngữ (en/fr/de/hi/it/pt/es/th). Bản `config.json` phát hành **không** kèm `id2label` ngữ nghĩa — transformers tự sinh `{0: LABEL_0, 1: LABEL_1}`, trong khi ví dụ trong model card lại in `model.config.id2label[argmax]` ⇒ `MALICIOUS`; hai nguồn không khớp, nên nghĩa chỉ số phải lấy từ model card + đo kiểm (index 1 = malicious), không suy từ artifact.
   - **Llama Guard 3**: Mô hình dựa trên Llama-3 chuyên kiểm tra nội dung đầu vào và đầu ra dựa trên chính sách an toàn (Content Moderation Policy).
-- **Ý nghĩa cho đề tài**: Prompt-Guard-86M là ứng viên sáng giá cho **Lớp 3 (Semantic ML Guardrail)** nhờ độ trễ cực thấp, dễ dàng nhúng inline vào luồng tiền xử lý để phát hiện các biến thể injection mà YARA bỏ sót.
+- **Ý nghĩa cho đề tài**: Prompt Guard là ứng viên sáng giá cho **Lớp 3 (Semantic ML Guardrail)** nhờ độ trễ cực thấp, dễ dàng nhúng inline vào luồng tiền xử lý để phát hiện các biến thể injection mà YARA bỏ sót. Vì v2 chỉ có 2 lớp, dùng nó ở Lớp 3 cần profile nhãn + ngưỡng hiệu chỉnh riêng thay cho cặp `P(Injection)`/`P(Jailbreak)` ≥ 0.75 của spec §3.4.
 
 ---
 
