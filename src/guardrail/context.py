@@ -27,7 +27,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import NamedTuple, TypedDict
 
 from guardrail.capa_projection import ALLOWLIST_FIELDS
-from guardrail.evidence import EVIDENCE_ID_PATTERN
+from guardrail.evidence import EVIDENCE_ID_PATTERN, NO_MAPPING_TECHNIQUE
 
 __all__ = [
     "DEFAULT_MODEL_ID",
@@ -56,8 +56,6 @@ DEFAULT_MODEL_ID = "malware-analyst-agent-v1"
 DEFAULT_TEMPERATURE = 0.1
 #: Trần ký tự của `summary` trong adversarial indicator (context chỉ cần tóm tắt).
 MAX_FINDING_SUMMARY_CHARS = 280
-#: Sentinel no-mapping ATLAS §4.1 — không lặp lại trong danh sách mã kỹ thuật.
-NO_MAPPING_TECHNIQUE = "No direct mapping"
 #: Thẻ bao dữ liệu untrusted (spec §3.5.2).
 UNTRUSTED_TAG = "untrusted_malware_telemetry"
 #: Ba block cấu trúc bên trong thẻ untrusted.

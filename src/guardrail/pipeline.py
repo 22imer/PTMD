@@ -354,15 +354,7 @@ class SimulatedAgent:
         else:
             score, confidence = None, None
 
-        summaries = [summarize_finding(record) for record in self.evidence]
-        attacks = [
-            {
-                "evidence_id": summary["evidence_id"],
-                "atlas_techniques": list(summary["atlas_techniques"]),
-                "summary": summary["summary"],
-            }
-            for summary in summaries
-        ]
+        attacks = [summarize_finding(record) for record in self.evidence]
         capabilities: list[dict[str, str]] = []
         seen: set[tuple[str, str, str]] = set()
         for row in self.capabilities:
@@ -1031,13 +1023,7 @@ def _merge_canary_findings(
         summary = summarize_finding(record)
         if summary["evidence_id"] in known:
             continue
-        attacks.append(
-            {
-                "evidence_id": summary["evidence_id"],
-                "atlas_techniques": list(summary["atlas_techniques"]),
-                "summary": summary["summary"],
-            }
-        )
+        attacks.append(summary)
     report["adversarial_evasion_findings"] = {
         "prompt_injection_detected": True,
         "evasion_attempts": attacks,

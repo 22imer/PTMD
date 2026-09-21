@@ -456,18 +456,12 @@ class CanaryVerifier:
     def _record(self, hit: CanaryHit) -> EvidenceRecord:
         evidence_id = format_evidence_id(self.year, self._sequence)
         self._sequence += 1
-        if hit.kind == "CANARY":
-            summary = (
-                f"Output agent chứa canary đã cấp tại {hit.locator}; nội dung rò rỉ đã "
-                "bị tước trước khi phát hành."
-            )
-            owasp = "LLM07:2025-SystemPromptLeakage"
-        else:
-            summary = (
-                f"Output agent chứa marker chỉ thị hệ thống tại {hit.locator}; nội dung "
-                "rò rỉ đã bị tước trước khi phát hành."
-            )
-            owasp = "LLM07:2025-SystemPromptLeakage"
+        source = "canary đã cấp" if hit.kind == "CANARY" else "marker chỉ thị hệ thống"
+        summary = (
+            f"Output agent chứa {source} tại {hit.locator}; nội dung rò rỉ đã "
+            "bị tước trước khi phát hành."
+        )
+        owasp = "LLM07:2025-SystemPromptLeakage"
         return build_canary_leak_evidence(
             evidence_id=evidence_id,
             artifact_sha256=self.artifact_sha256,
