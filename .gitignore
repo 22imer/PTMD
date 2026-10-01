@@ -4,3 +4,18 @@ __pycache__/
 graphify-out/
 .pytest_cache/
 .coverage
+
+# --- không commit: dữ liệu mã độc + file làm việc cục bộ ---
+report13.json
+data/
+*.baseline
+custom_only.yar
+rules/custom_only.yar
+NOTES.md
+debug*.py
+gap.py
+peek.py
+test13.py
+inject_test.py
+harness.py
+build_payloads.py
