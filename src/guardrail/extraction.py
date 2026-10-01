@@ -188,15 +188,9 @@ def _build_regions(
     """
     if not sections:
         return [(None, 0, data)]
-    ordered = sorted(
-        enumerate(sections),
-        key=lambda item: (
-            0 if item[1][0] in PRIORITY_SECTION_NAMES else 1,
-            item[0],
-        ),
-    )
+    ordered = sorted(sections, key=lambda section: section[0] not in PRIORITY_SECTION_NAMES)
     regions: list[tuple[str | None, int, bytes]] = []
-    for _, (name, offset, size) in ordered:
+    for name, offset, size in ordered:
         start = max(0, offset)
         end = min(len(data), start + max(0, size))
         if end <= start:

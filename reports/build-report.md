@@ -87,7 +87,8 @@ depth/64KB/printable cho de-obfuscation), **R11** (LOW — nửa còn lại: `pa
 
 | Mục | Trạng thái | Điều kiện gỡ |
 |---|---|---|
-| Meta Prompt Guard-86M gated (401) — không có `reports/prompt_guard_measurements.json`, chưa đo latency thật | **Waiver tường minh (E-R3, C-R-C2)**: blocker môi trường, không phải defect code; acceptance T05 vẫn ghi blocked, không phát sinh score giả | Chạy `GUARDRAIL_PROMPT_GUARD_SMOKE=1` với quyền HF, lưu kết quả thô vào `reports/` **trước mọi claim Phase 3** |
+| Meta Prompt Guard-86M (model tham chiếu spec §3.4, revision ghim `1209add6…7b03`) trả **403** `awaiting a review from the repo authors` (kiểm 2026-09-21) — không có `reports/prompt_guard_measurements.json`, chưa đo latency thật | **Waiver tường minh (E-R3, C-R-C2)**: blocker môi trường, không phải defect code; acceptance T05 vẫn ghi blocked, không phát sinh score giả | Meta duyệt quyền → chạy `GUARDRAIL_PROMPT_GUARD_SMOKE=1` theo revision đã ghim, lưu kết quả thô vào `reports/` **trước mọi claim Phase 3** |
+| Model thay thế `meta-llama/Llama-Prompt-Guard-2-86M` @ `a8ded8e6…2fd27`: tải được và nạp offline được (HF cache, 2026-09-21; 11,7 s CPU; 278.810.882 tham số; sha256 `model.safetensors` = `e72017db…f6b09`) nhưng **không drop-in** | **Chặn hợp đồng nhãn, ghi nhận có bằng chứng**: artifact không có `id2label` ngữ nghĩa (`{0: LABEL_0, 1: LABEL_1}`), PG2 là 2 lớp không có `INJECTION` ⇒ `resolve_label_mapping` ném `PromptGuardLabelMappingError`; `0.75` chưa hiệu chỉnh cho PG2 | Chốt hướng: (a) đo ngoài pipeline bằng `AutoModelForSequenceClassification`, hoặc (b) thay đổi source (label profile 2 lớp) + pin + calibration §6.5/§6.6, kèm ADR/spec vì §3.4 đang ghi Prompt-Guard-86M |
 | Module Cuckoo không có trong build YARA local (yara-python 4.5.4, không `--enable-cuckoo`) | Degradation theo spec §3.2.2: `probe_cuckoo_capability()` → `available=False` + cờ `cuckoo_unavailable`; `scan_cape_report` → `ScanError(CAPABILITY)` + `coverage=PARTIAL`, không fallback ngầm | Dựng YARA có Cuckoo + chạy happy-path report import (residual C-R1) |
 | Nhánh provenance memory dump (`VIRTUAL_ADDRESS`) chưa có runtime evidence | **Defer có tuyên bố** (spec §3.2.2 note, residual W-1): cần dump PE-sieve thật ở Phase 2; không coi là delivery defect của T02 | Lab cung cấp memory dump + metadata nguồn xác nhận |
 | Benchmark thực nghiệm T09/T10 (dataset, split, 4 baseline, timing, §6.7 pass/fail) | **Blocked ngoài tầm executor**: thiếu `reports/{dataset,split}_manifest.json` và `reports/evaluation_results.json`; artifact hiện có là `*.synthetic-example.*` — số liệu harness, **không được trích dẫn như bằng chứng hiệu quả** | Duyệt dataset paired 200 pairs trong lab + chạy 4 baseline trên test split |
@@ -95,7 +96,7 @@ depth/64KB/printable cho de-obfuscation), **R11** (LOW — nửa còn lại: `pa
 
 ## 6. Định hướng Phase 3 (ngắn)
 
-1. **Gỡ chặn model**: chạy smoke Prompt Guard-86M theo revision đã ghim, đo latency thật (batch 8–16) → đóng E-R3/C-R2.
+1. **Gỡ chặn model**: model ghim vẫn chờ Meta duyệt (403). Chốt trước một trong hai: chờ quyền cho `meta-llama/Prompt-Guard-86M` rồi chạy smoke theo revision đã ghim, **hoặc** chuyển sang `meta-llama/Llama-Prompt-Guard-2-86M` (đã có bản local) theo thay đổi source + pin + calibration riêng; sau đó đo latency thật (batch 8–16) → đóng E-R3/C-R2.
 2. **Dataset**: duyệt paired dataset 200 pairs trong lab, xuất `dataset_manifest.json` + `split_manifest.json`;
    đóng F-R2 (cờ encoding + transform chain trong outcome), F-R11 (đối soát inventory), F-R15 (bắt buộc `sample_id`).
 3. **Đo**: chạy 4 baseline trên test split, C=1/4/8, p95 @C=1, báo tử số/mẫu số + abstention; xuất

@@ -190,15 +190,13 @@ def build_provenance(
     `VIRTUAL_ADDRESS` bắt buộc có `parent_artifact_sha256` và `locator` dạng
     `0x…`; các loại khác không được suy diễn thêm ràng buộc ngoài schema.
     """
-    provenance: Provenance = {
-        "type": _require_enum(kind, "provenance.type", _PROVENANCE_TYPES),
-        "locator": _require_str(locator, "provenance.locator"),
+    provenance: dict[str, object] = {
+        "type": kind,
+        "locator": locator,
         "section_or_pid": section_or_pid,
     }
     if parent_artifact_sha256 is not None:
-        provenance["parent_artifact_sha256"] = _require_sha256(
-            parent_artifact_sha256, "provenance.parent_artifact_sha256"
-        )
+        provenance["parent_artifact_sha256"] = parent_artifact_sha256
     return _normalise_provenance(provenance)
 
 

@@ -8,8 +8,10 @@
 // module Cuckoo thành công — nếu không, scanner Cuckoo bị vô hiệu kèm cờ cấu
 // hình `cuckoo_unavailable`, không thay thế bằng cơ chế ngầm (spec §3.2.2).
 //
-// Report CAPEv2 được nạp qua external variable `cuckoo` (đường dẫn file JSON
-// report), không phải qua module-data.
+// Report CAPEv2 được nạp qua kênh module-data (`modules_data={"cuckoo": <bytes
+// report>}` trong yara-python; CLI `-x cuckoo=<report>` ≡ `--module-data`).
+// Biến external (`externals=`/`-d`) chỉ là biến điều kiện trong `condition:`,
+// không cấp dữ liệu cho module (errata SP-01, issue 2026-09-20 full-project review).
 
 import "cuckoo"
 

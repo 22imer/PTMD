@@ -1,8 +1,8 @@
 # `src/guardrail/` — Prototype Guardrail cho Malware Analysis Agent
 
-Prototype Phase 2 (spec v1.4.0, `implemention.md` T01–T10). Mục tiêu: dữ liệu mã độc
-(strings, telemetry, tool result) không bao giờ tự biến thành chỉ thị cho Agent; câu lệnh
-promptware được giữ làm bằng chứng (ADR-0002) và Agent chỉ là Passive Consumer (ADR-0003).
+Prototype Phase 2 (spec v1.4.0, `implemention.md` T01–T10): dữ liệu mã độc (strings, telemetry, tool result) không bao giờ tự biến thành chỉ thị cho Agent; promptware được giữ làm bằng chứng (ADR-0002) và Agent chỉ là Passive Consumer (ADR-0003).
+
+Cài đặt, quickstart, tham số `run_pipeline`, lệnh test/coverage và known limitations toàn repo là canonical ở [`README.md`](../../README.md) §1–§7; ở đây chỉ giữ phần riêng của package.
 
 ## Mục tiêu thiết kế
 
@@ -10,9 +10,8 @@ promptware được giữ làm bằng chứng (ADR-0002) và Agent chỉ là Pas
 - Hai nhánh độc lập: Detection (YARA + Prompt Guard) và Capability (CAPA projection),
   hội tụ ở Decision Policy Gate — policy không tự suy luận score, không ép hai enum bằng nhau.
 - Chỉ metadata/evidence summary đã được duyệt vào context; raw evidence ở kho điều tra.
-- Output phải validate theo `schemas/final_report.schema.json`, re-ask hữu hạn (≤2), hết lượt
-  thì abstain — **không bao giờ ép `BENIGN`**.
-- Mọi tuyên bố hiệu quả là mục tiêu cần đo, không phải kết quả; xem `reports/build-report.md`.
+- Output validate theo `schemas/final_report.schema.json`, re-ask hữu hạn (≤2), hết lượt thì
+  abstain — **không bao giờ ép `BENIGN`**. Mọi tuyên bố hiệu quả là mục tiêu cần đo.
 
 ## Module map
 
@@ -33,34 +32,19 @@ promptware được giữ làm bằng chứng (ADR-0002) và Agent chỉ là Pas
 | `pipeline.py` | E2E wiring Module 4: hai nhánh → gate → context → report trên một CAPEv2 report. |
 | `evaluation/` | Package Phase 3: `dataset_protocol.py` (T09), `metrics.py` (T10). |
 
-## Pipeline
+## Luồng dữ liệu (wiring hiện tại)
 
-```text
-CAPEv2 report ─┬─ telemetry ─┐
-artifact bytes ┘             ├─ normalization (Lớp 0) ─┬─ YARA (Lớp 1) ───┐
-CAPA report ─── capa_projection ────────────────────────┴─ Prompt Guard ─┴─ policy gate
-                                                                             │
-                      context (spotlighting) ◄── evidence emission ◄──────────┘
-                                │
-                      Agent (3 tool read-only) ─► report: validate / re-ask ≤2 / abstain
-```
+- **Động:** `TelemetryIngestionAdapter.ingest()` → Lớp 0 → YARA `scan_normalized` → Prompt Guard,
+  nhưng chỉ nhận `telemetry_normalized[:prompt_guard_budget]` (`backend=None` ⇒ `errored` ⇒ `INCONCLUSIVE`).
+- **Tĩnh:** `extract_strings(artifact_bytes)` → Lớp 0 → YARA `scan_normalized`; nhánh static **chưa**
+  nối vào Prompt Guard (SP-05).
+- **Capability:** `project_capabilities(capa_report)`, độc lập hai nhánh trên. **Cuckoo:** chỉ chạy khi
+  caller truyền `cape_report_path`; build local thiếu `--enable-cuckoo` ⇒ `cuckoo_unavailable` + `PARTIAL`.
+- **Hội tụ:** policy gate → evidence emission → context spotlighting → execution rails (dispatcher 3 tool
+  read-only) → agent → report (validate / re-ask ≤2 / fallback) → Canary Token Verifier.
 
-Luồng bắt buộc: **extraction → normalization → detectors → policy → evidence → context → report**; Capability Branch độc lập, hội tụ ở policy; tool result của Agent quay lại đúng ingress policy.
-
-## Chạy test
-
-```bash
-.venv/bin/python -m pytest -q                    # toàn bộ suite (offline, không model thật)
-.venv/bin/python -m pytest tests/evaluation -q   # riêng protocol + harness Phase 3
-```
-
-Đo coverage cho nhóm module L0–L3:
-
-```bash
-# phạm vi wave hardening L4a
-.venv/bin/python -m pytest tests/test_contracts.py tests/test_extraction.py tests/test_telemetry.py tests/test_normalization.py \
-  tests/test_capa_projection.py tests/test_hardening.py -q --cov=src/guardrail --cov-report=term-missing
-```
+Thứ tự tầng bắt buộc: **extraction → normalization → detectors → policy → evidence → context → report**;
+tool result của Agent quay lại đúng ingress policy. Định tuyến theo từng nguồn dữ liệu: `README.md` §4.
 
 ## Test seams
 
@@ -70,8 +54,9 @@ Luồng bắt buộc: **extraction → normalization → detectors → policy �
 - `agent_stub=` nhận callable theo `AgentRequest`; mặc định `SimulatedAgent` (xem WARNING bên dưới).
 - `scanner=` cho phép bơm `YaraScanner` lỗi để chạm nhánh coverage `PARTIAL`/`FAILED`.
 - `dispatcher_store=`, `canaries=`, `prompt_guard_config=`, `prompt_guard_budget=` cho các nhánh Lớp 5.
-- Fixture: `tests/fixtures/` — CAPE `cape_report_sample_harmless.json`/`cape_report_sample_edge_cases.json`, CAPA `capa_report_sample_harmless.json`/`capa_rd_real_small.json`, `dataset_manifest_example.json`.
-- Smoke model thật (opt-in): đặt `GUARDRAIL_PROMPT_GUARD_SMOKE=1` (xem mục blocked).
+- Fixture `tests/fixtures/`: CAPE `cape_report_sample_harmless.json`/`cape_report_sample_edge_cases.json`, CAPA `cape_report_sample_harmless.json`/`capa_rd_real_small.json`, `dataset_manifest_example.json`, `atlas_snapshot_subset.json`. Smoke model thật là opt-in (`GUARDRAIL_PROMPT_GUARD_SMOKE=1`) và hiện **chưa chạy được** (xem bên dưới).
+
+Chạy test/coverage/type-check: dùng đúng lệnh ở `README.md` §6.
 
 ## Artifacts
 
@@ -81,15 +66,13 @@ Luồng bắt buộc: **extraction → normalization → detectors → policy �
 | `rules/` | `promptware.yar` (tĩnh, luôn biên dịch được), `promptware_cuckoo.yar` (cần module Cuckoo). |
 | `reports/` | `phase0-gate.json`, `integration-pin.json`, `environment.json`, `coverage.json`, `evaluation_{results,summary}.synthetic-example.*` (số liệu tổng hợp, **không** phải benchmark). |
 
-## Known blocked
+## Known blocked (ảnh hưởng trực tiếp package này)
 
-- **Prompt Guard model bị gated**: `meta-llama/Prompt-Guard-86M` trả 401 khi chưa có quyền ⇒
-  chưa đo inference thật (`reports/prompt_guard_measurements.json` chưa tồn tại). Khi có quyền,
-  chạy `.venv/bin/python -m pytest tests/test_prompt_guard.py -q` với `GUARDRAIL_PROMPT_GUARD_SMOKE=1`.
-- **Module Cuckoo không có trong build YARA local**: `probe_cuckoo_capability()` trả
-  `available=False`, cờ `cuckoo_unavailable`; `scan_cape_report` trả `PARTIAL` + `ScanError`
-  (`CAPABILITY`), không fallback ngầm (spec §3.2.2).
-- **Benchmark thực nghiệm cần lab/dataset**: chưa có `dataset_manifest.json`/`split_manifest.json`/`evaluation_results.json` trong `reports/` — T09/T10 xong protocol + harness, phần đo bị chặn.
+- **Prompt Guard gated:** model pin `meta-llama/Prompt-Guard-86M` @ `1209add6…7b03` (spec §3.4) trả **403** (kiểm 2026-09-21) ⇒ chưa từng nạp weight thật, `reports/prompt_guard_measurements.json` chưa tồn tại; smoke ghim cứng `load_pin()` nên **không** đổi model chỉ bằng biến môi trường.
+- **Model thay thế:** `meta-llama/Llama-Prompt-Guard-2-86M` @ `a8ded8e6…2fd27` nạp offline được nhưng không drop-in (2 lớp, không `id2label` ngữ nghĩa) ⇒ `resolve_label_mapping` ném `PromptGuardLabelMappingError`; ngưỡng `0.75` chưa hiệu chỉnh cho PG2.
+- **Cuckoo + Phase 3:** `probe_cuckoo_capability()` → `available=False` (cờ `cuckoo_unavailable`) và `scan_cape_report` → `PARTIAL` + `ScanError(CAPABILITY)`, không fallback ngầm; T09/T10 thiếu `reports/{dataset,split}_manifest.json` + `reports/evaluation_results.json` ⇒ protocol/harness đã có, phép đo chưa chạy.
+
+Chi tiết blocker, waiver và điều kiện gỡ: `reports/build-report.md` §5, `README.md` §7 mục 6/8.
 
 ## WARNING — `SimulatedAgent` chỉ dành cho dev/test
 

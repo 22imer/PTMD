@@ -91,3 +91,13 @@
 **Bài học:** Bộ làm sạch/lọc phải đối xứng theo CẤU TRÚC, không chỉ theo giá trị: CanaryVerifier quét value mà bỏ qua mapping KEY → canary lọt dưới dạng khóa (verify({CANARY:'v'}) → released=True); và tham số cấu hình không validate ('' trong system_markers) gây vòng lặp vô hạn ở `_replace_case_insensitive('abc','')`.
 **Bằng chứng:** muc-e-sup R1/R2 (medium/low); fix commit theo sau — sanitize keys qua cùng đường `_sanitize_text` + guard needle rỗng 2 lớp (constructor + hàm).
 **Quy tắc:** Khi viết sanitizer/redactor: xử lý cả key lẫn value của mọi mapping (kể cả trong list), kiểm trùng sau redaction; mọi tham số cấu hình chuỗi phải validate non-empty trước khi dùng; test boundary rỗng thuộc bộ chuẩn.
+
+## LL-019 · 2026-09-21 · audit (định hướng và mức bằng chứng)
+**Bài học:** Verdict PASS của wave prototype và checkbox task không đồng nghĩa nghiệm thu tích hợp hoặc trả lời giả thuyết nghiên cứu; kế hoạch cũ có thể vừa ghi “chưa mở gate” vừa chứa kết quả gate PASS.
+**Bằng chứng:** `audit.md` A01/A06: Phase 0 PASS, code/harness đã có nhưng thiếu năm artifact empirical; `implemention.md` còn câu tiền triển khai và checkbox nạp model/memory/Cuckoo rộng hơn bằng chứng. Smoke README §3 trong phiên audit chạy thành công với `backend=None` và `SimulatedAgent`, không phải benchmark thật.
+**Quy tắc:** Khi audit định hướng, đối chiếu intent → spec → code → artifact; tách code/fixture, tích hợp thật và hiệu quả thực nghiệm. Ghi scope/thời điểm verdict, đặt agent thật trước benchmark trong kế hoạch; giữ finding mở cho đến khi có đúng loại bằng chứng.
+
+## LL-020 · 2026-09-21 · tài liệu lab neo vào commit ghim (bẫy file default)
+**Bài học:** Hai bẫy khi viết hướng dẫn cấu hình CAPE: (1) tài liệu upstream "latest" không thay được nguồn ở commit ghim — `capev2.readthedocs.io/en/latest/installation/host/requirements.html` trả 404, phải đọc `raw.githubusercontent.com/kevoreilly/CAPEv2/<sha>/…`; (2) CAPE luôn đọc `conf/default/<name>.conf.default` TRƯỚC `custom/conf/<name>.conf`, nên override thiếu khóa sẽ im lặng giữ giá trị mẫu — `conf/default/vmwarerest.conf.default` chứa sẵn `machines = win7x64sp1`, `host = 192.168.52.1` và credential placeholder `VMwareREST / C@PE$@ndb0x`.
+**Bằng chứng:** `lib/cuckoo/common/config.py:116-131` (thứ tự file); `conf/default/vmwarerest.conf.default:3-22` (giá trị mẫu); guide mới `guides/huong_dan_cau_hinh_2vm.html` §3.3.1/§6 ghi rõ hai điểm này; đối chiếu chéo bằng `git rev-parse HEAD` = `ebf1b1dfa5e24746799735ea7fcfaf2bff6b4d68`.
+**Quy tắc:** Mọi khẳng định về lab phải neo vào commit ghim (kèm số dòng của chính commit đó); khi hướng dẫn copy override, liệt kê ĐỦ khóa và thêm bước kiểm bằng lệnh nạp cấu hình thật (`Config("vmwarerest")`) thay vì tin vào việc "đã copy file".

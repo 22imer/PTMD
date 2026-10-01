@@ -4,10 +4,20 @@ __pycache__/
 graphify-out/
 .pytest_cache/
 .coverage
+node_modules/
+package.json
+package-lock.json
+build/
+*.egg-info/
+
+# Tài liệu lab do người tạo (guides/, HD.md, config_env/) — không track (ST-02, issue 2026-09-20).
+guides/
 
 # --- không commit: dữ liệu mã độc + file làm việc cục bộ ---
+# `/data/` neo ở gốc repo: `src/guardrail/data/confusables_min.json` là dữ liệu
+# tracked mà `normalization.py` nạp lúc chạy, không được ignore.
+/data/
 report13.json
-data/
 *.baseline
 custom_only.yar
 rules/custom_only.yar

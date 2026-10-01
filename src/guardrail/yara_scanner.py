@@ -3,7 +3,7 @@
 Module này áp ruleset YARA lên ba loại input mà spec §2 (khối "LỚP 1") nêu:
 file tĩnh trên đĩa, memory dump từ PE-sieve, và report hành vi CAPEv2 qua module
 Cuckoo. Nó là detector, không phải policy: output là ``Finding`` + lỗi/coverage,
-đúng contract T00 "Detector → Policy" (``implemention.md`` dòng 88): finding giữ
+đúng contract T00 "Detector → Policy" (``implemention.md`` §3, hàng "Detector → Policy"): finding giữg giữ
 artifact/provenance, detector name/version, transform chain; **processing state
 độc lập detection state và lỗi detector không bị đổi thành NOT_DETECTED**.
 
@@ -13,16 +13,18 @@ Ba đường quét, cùng một ruleset tĩnh ``rules/promptware.yar``:
   ``Finding.matched_offsets`` là offset byte **trong chính artifact được đưa
   vào**; ``detection_source`` do caller khai (``STATIC_STRING`` cho file,
   ``DYNAMIC_MEMORY_DUMP`` cho memory dump). Scanner không tự suy địa chỉ ảo từ
-  offset dump (spec/``implemention.md`` dòng 119): muốn provenance
+  offset dump (spec §3.2.2; ``implemention.md`` §4 T02): muốn provenancence
   ``VIRTUAL_ADDRESS`` thì caller truyền ``provenance`` đã xác nhận.
 - ``scan_text`` / ``scan_normalized`` — quét từng chuỗi đã chuẩn hoá của Lớp 0.
   Ở mức chuỗi, offset byte không có nghĩa (bản chuẩn hoá đã bị biến đổi), nên
   ``matched_offsets``/``matched_data`` để rỗng và **provenance của caller được
   giữ nguyên** (cùng đối tượng ``Provenance`` mà ``NormalizationEngine`` trả về),
   kèm ``transform_chain`` để truy vết. Không lấy offset của chuỗi normalized
-  làm file offset (``implemention.md`` dòng 145).
-- ``scan_cape_report`` — quét report CAPEv2 bằng module Cuckoo qua external
-  variable ``cuckoo=<đường dẫn report>`` (spec §3.2.2). Đây là cơ chế **độc
+  làm file offset (``implemention.md`` §4 T04).).
+- ``scan_cape_report`` — quét report CAPEv2 bằng module Cuckoo qua **module-data**
+  ``modules_data={"cuckoo": <bytes report>}`` (cùng kênh với CLI
+  ``-x cuckoo=<report>`` ≡ ``--module-data``; errata SP-01 trong
+  ``issues/issue_2026-09-20_full_project_review_new_findings.md``). Đây là cơ chế **độc
   lập** với Telemetry Ingestion Adapter (T02): adapter trích API arguments
   (``OutputDebugString``/``SetWindowText``/``MessageBox``) thành ``RawString``
   cho scanner chuỗi, còn module Cuckoo kiểm tra network/file/registry/mutex
@@ -51,7 +53,7 @@ không crash và không bị hạ thành "không phát hiện".
   finding nào được tạo ra một cách đáng tin cậy.
 
 ``YaraScanner.manifest()`` trả build/ruleset hash để log kèm kết quả
-(``implemention.md`` dòng 152: "Log ghi build/ruleset/fixture hash").
+(``implemention.md`` §4 T04 Nghiệm thu: "Log ghi build/ruleset/fixture hash")..
 
 Chỉ dùng stdlib + ``yara-python``; không chạy sample, không điều khiển sandbox,
 không gắn vào PID sống.
@@ -403,7 +405,12 @@ class YaraScanner:
     # --- Quét report CAPEv2 qua module Cuckoo ------------------------------
 
     def scan_cape_report(self, report_path: str | Path) -> CuckooScanResult:
-        """Quét report CAPEv2 bằng module Cuckoo qua external ``cuckoo=<path>``.
+        """Quét report CAPEv2 bằng module Cuckoo qua module-data Cuckoo.
+
+        Report được nạp vào module qua ``modules_data={"cuckoo": <bytes>}`` —
+        cùng kênh với CLI ``-x cuckoo=<report>`` (``--module-data``). Biến
+        external (``externals=``) chỉ là biến điều kiện trong ``condition:``,
+        không cấp dữ liệu cho module (errata SP-01).
 
         Module không khả dụng ⇒ ``errors=[CAPABILITY]``, ``coverage=PARTIAL``,
         ``findings=[]`` — coverage gap được ghi nhận tường minh kèm cờ cấu hình,
@@ -432,10 +439,11 @@ class YaraScanner:
             )
 
         try:
+            report_bytes = path.read_bytes()
             matches = self.cuckoo_rules.match(
-                filepath=str(path), externals={"cuckoo": str(path)}
+                filepath=str(path), modules_data={"cuckoo": report_bytes}
             )
-        except yara.Error as exc:
+        except (yara.Error, OSError) as exc:
             return CuckooScanResult(
                 [],
                 [_error(ScanErrorKind.SCAN_ERROR, path, str(exc))],
