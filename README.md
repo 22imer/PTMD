@@ -9,7 +9,7 @@ Prototype Phase 2 của spec `SPEC-SEC-AI-2026-01` v1.4.0: chặn dữ liệu m�
 | Hạng mục | Trạng thái |
 |---|---|
 | Code T01–T08 (Module 0–4) | PASS theo supervisor verdict, mutation-kill 4/4 và 5/5 (`reports/build-report.md` §3) |
-| Test offline | `494 passed, 2 skipped` (496 collected) |
+| Test offline | `540 passed, 2 skipped` (542 collected) |
 | Type-check (advisory) | `275 errors + 2 warnings` (đo 2026-09-21 sau refactor; trần ratchet ADR-0005 là `276 errors + 2 warnings`) |
 | Prompt Guard thật (Lớp 3) | **blocked**: model ghim `meta-llama/Prompt-Guard-86M` trả 403; model thay thế có bản local nhưng khác contract nhãn (§7 mục 6, §7 mục 8) |
 | YARA Cuckoo (Lớp 1) | **blocked**: build `yara-python` local không có `--enable-cuckoo` (`cuckoo_unavailable`) |
@@ -150,7 +150,7 @@ executive_summary: Simulated agent: 2 bản ghi đối kháng, 5 capability ATT&
 ### 4.4 Lớp 0 → detector, và định tuyến hiện tại
 
 - **Lớp 0** `NormalizationEngine`: zero-width/NFKD/confusables, giải Base64/Hex depth ≤ 2, budget 64KB byte; giữ provenance + transform chain.
-- **Lớp 1** `YaraScanner` (`rules/promptware.yar`): `scan_normalized` cho chuỗi đã chuẩn hoá; `scan_bytes`/`scan_text` là API cho file/memory dump với `detection_source` do caller khai.
+- **Lớp 1** `YaraScanner` (`rules/promptware.yar`: rule spec §3.2.1 nguyên văn + họ `Promptware_*` mở rộng `version = ext-*`, chưa đo FPR/recall thật): `scan_normalized` cho chuỗi đã chuẩn hoá; `scan_bytes`/`scan_text` là API cho file/memory dump với `detection_source` do caller khai.
 - **Lớp 3** Prompt Guard là detector tầng sau, không phải collector: chỉ chạy khi caller truyền `backend`, và nhận **chuỗi telemetry đã chuẩn hoá** + provenance (`pipeline.py:766-767`). Nhánh static **chưa** được nối vào Prompt Guard (SP-05).
 - **Nhánh capability** `project_capabilities()` chạy độc lập: chiếu output `capa -j` qua allowlist 4 khóa `tactic`/`technique_id`/`technique_name`/`namespace`; mọi free-text bị tước.
 - **Cuckoo** tách riêng, optional: chỉ chạy khi caller truyền `cape_report_path=`; ruleset `rules/promptware_cuckoo.yar` cần YARA build `--enable-cuckoo`. Build hiện tại không có → cờ `cuckoo_unavailable`, coverage `PARTIAL`, không fallback ngầm.
@@ -194,7 +194,7 @@ Trả về `PipelineResult` (NamedTuple): `artifact_sha256`, `processing_state`,
 Toàn bộ suite offline (không model thật, không ghi coverage vào repo):
 
 ```bash
-.venv/bin/python -m pytest -q                                  # 494 passed, 2 skipped (496 collected)
+.venv/bin/python -m pytest -q                                  # 540 passed, 2 skipped (542 collected)
 .venv/bin/python -m pytest -q tests/test_contracts.py tests/test_telemetry.py tests/test_pipeline.py
 .venv/bin/python -m pytest -q tests/evaluation                 # protocol + harness Phase 3
 ```

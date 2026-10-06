@@ -72,7 +72,7 @@ Không nằm trong git — **không** dùng làm nguồn chuẩn: `AGENT_CONTEXT
 
 ## Kiểm chứng trước khi kết luận
 
-- Suite offline (không model thật): `.venv/bin/python -m pytest -q` — kỳ vọng `494 passed, 2 skipped` (496 collected); skip là smoke opt-in và happy-path Cuckoo.
+- Suite offline (không model thật): `.venv/bin/python -m pytest -q` — kỳ vọng `540 passed, 2 skipped` (542 collected); skip là smoke opt-in và happy-path Cuckoo.
 - Type-check advisory có ratchet (ADR-0005): `pyright` — không được tăng so với `276 errors, 2 warnings`; đo lại khi tranh chấp.
 - Coverage: trỏ `COVERAGE_FILE` vào thư mục tạm, không ghi `.coverage` vào repo (xem `README.md` §6).
 - Không thay bằng chứng thật bằng mock: số liệu model/hiệu quả phải đến từ lần chạy thật và được ghi vào `reports/` kèm ngày, revision, sha256.

@@ -17,15 +17,15 @@ guides/
 # `/data/` neo ở gốc repo: `src/guardrail/data/confusables_min.json` là dữ liệu
 # tracked mà `normalization.py` nạp lúc chạy, không được ignore.
 /data/
-report13.json
+/report13.json
 *.baseline
-custom_only.yar
-rules/custom_only.yar
-NOTES.md
-debug*.py
-gap.py
-peek.py
-test13.py
-inject_test.py
-harness.py
-build_payloads.py
+/custom_only.yar
+/rules/custom_only.yar
+/NOTES.md
+/debug*.py
+/gap.py
+/peek.py
+/test13.py
+/inject_test.py
+/harness.py
+/build_payloads.py

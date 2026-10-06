@@ -63,7 +63,7 @@ Chạy test/coverage/type-check: dùng đúng lệnh ở `README.md` §6.
 | Đường dẫn | Nội dung |
 |---|---|
 | `schemas/` | `quarantined_evidence.schema.json` (§4.1), `final_report.schema.json` (§4.2) — Draft-07. |
-| `rules/` | `promptware.yar` (tĩnh, luôn biên dịch được), `promptware_cuckoo.yar` (cần module Cuckoo). |
+| `rules/` | `promptware.yar` (tĩnh, luôn biên dịch được; rule spec nguyên văn + họ `Promptware_*` mở rộng chưa đo FPR thật), `promptware_cuckoo.yar` (cần module Cuckoo). |
 | `reports/` | `phase0-gate.json`, `integration-pin.json`, `environment.json`, `coverage.json`, `evaluation_{results,summary}.synthetic-example.*` (số liệu tổng hợp, **không** phải benchmark). |
 
 ## Known blocked (ảnh hưởng trực tiếp package này)
