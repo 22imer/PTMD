@@ -13,6 +13,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+laya = ["laya==0.3.28"]
+
 dev = [
     "pytest",
 ]

@@ -4,7 +4,7 @@
 **Status:** Approved Baseline — Paired with Spec v1.4.0 (đồng bộ diagram 2026-09-19)  
 **Related Documents:**
 - **Domain Glossary:** `CONTEXT.md` (Ubiquitous Language)
-- **Architectural Decisions:** `docs/adr/0001-separate-capa-from-capev2.md`, `0002-tag-as-evidence-over-hard-block.md`, `0003-passive-consumer-agent.md`
+- **Architectural Decisions:** `docs/adr/0001-separate-capa-from-capev2.md`, `0002-tag-as-evidence-over-hard-block.md`, `0003-passive-consumer-agent.md`, `0006-laya-clean-only-consumer.md`
 - **Technical Specification:** `specs/guardrail_malware_agent_spec.md` (Version 1.4.0)
 - **Research Links & Evidence:** `links.md`
 - **Audit & Issue History:** `issues/issue_2026-09-18_review_intent_specs.md` (Status: Resolved / Closed)
@@ -72,6 +72,8 @@ Trong các hệ thống phân tích mã độc và điều hành an ninh mạng 
 5. **Bảng khung Mapping tiêu chuẩn an toàn & Schemas**:
    - Ánh xạ chi tiết theo **MITRE ATLAS (Snapshot 2026.09)** và **OWASP LLM Top 10 (2025)**.
    - Đặc tả chuẩn cấu trúc JSON Draft-07 cho `QuarantinedAdversarialEvidence` và `MalwareAgentFinalReport`.
+
+**Giới hạn phạm vi:** Laya trong spec §8 là consumer kỹ thuật tùy chọn, không thay giả thuyết nghiên cứu §1.2 và không phải baseline thứ năm trong protocol bốn-baseline. Cho tới khi có phép đo miền malware riêng, mọi output advisory, `UNCALIBRATED`, và không phải bằng chứng về hiệu quả guardrail.
 
 ---
 
@@ -177,4 +179,4 @@ Hệ thống kết hợp phương pháp **Biểu tượng (Deterministic/Symboli
 - [ ] Hoàn thành **Bảng Mapping Ma trận tấn công** đối chiếu chuẩn xác theo **MITRE ATLAS Snapshot 2026.09** (`AML.T0051.001`, `AML.T0053`, `AML.T0054`, `AML.T0043`, `AML.T0015`, `AML.T0056`).
 - [ ] Thiết kế **Giao thức đánh giá 4 nhóm mẫu (Four-Group Evaluation Dataset)** với 2 Ground Truth độc lập (`GT_Injection` vs `GT_Malware_Behavior`).
 - [ ] Hoàn thiện tài liệu tổng hợp liên kết nghiên cứu (`links.md`) với trích dẫn URL và tóm tắt kỹ thuật đầy đủ.
-- [ ] Đồng bộ nhất quán với **Bản đặc tả kỹ thuật** (`specs/guardrail_malware_agent_spec.md` v1.4.0), **Từ điển nghiệp vụ** (`CONTEXT.md`) và **Bộ 3 bản ghi quyết định kiến trúc** (`docs/adr/0001`, `0002`, `0003`).
+- [ ] Đồng bộ nhất quán với **Bản đặc tả kỹ thuật** (`specs/guardrail_malware_agent_spec.md` v1.4.0), **Từ điển nghiệp vụ** (`CONTEXT.md`) và các bản ghi quyết định kiến trúc liên quan (`docs/adr/0001`–`0006`).

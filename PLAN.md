@@ -121,3 +121,5 @@ Phase 0 đã mở Phase 2. Trong detection branch, Module 0 → Module 1 → Mod
 **Gate trước benchmark:** người review xác nhận bằng chứng cho 1–7; `reports/environment.json` hiện chỉ là snapshot T01, không thay run manifest cho model/YARA/agent/hardware thực dùng. Waiver môi trường cho prototype không phải waiver cho nghiệm thu hiệu quả.
 
 **Đồng bộ hồ sơ:** `PLAN.md`/`AGENTS.md` được cập nhật trong audit này. Đối soát tiếp các dòng lịch sử/checkbox gây hiểu nhầm ở `implemention.md` và nhãn “final” của snapshot test cũ trong `reports/build-report.md`; bảo toàn lịch sử, không sửa spec để hợp thức hóa code. Khi trạng thái model/môi trường thực sự đổi, đồng bộ trọn bộ theo `AGENTS.md`.
+
+**Consumer Laya opt-in (2026-10-06):** spec §8 / ADR-0006 được nối qua `malware_analyzer=`; companion tách legacy report, gate policy + facts coverage + SHA-256 và canary envelope đã kiểm offline/smoke synthetic. Không thay policy/Prompt Guard/bốn baseline; không đóng các backlog legacy trên. Model `convaiinnovations/laya` @ `7b928d828b7b0e022f929d9bd2e44165aa270148` chưa xác minh digest local/nạp/smoke/calibration; trạng thái ở `reports/integration-pin.json` và build report §5.

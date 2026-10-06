@@ -9,17 +9,23 @@ trả report sai, verdict bị cấm, rò rỉ canary, tool-call trái phép) d�
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any, cast
 
 import jsonschema
 import pytest
 
-from guardrail.contracts import DetectionState, ProcessingState
+from guardrail.contracts import DetectionSource, DetectionState, ProcessingState
 from guardrail.evidence import EvidenceRecord
+from guardrail.malware_analysis import LayaMalwareAnalyzer, load_malware_workflow
 from guardrail.pipeline import PipelineResult, run_pipeline
 from guardrail.policy import PolicyAction
-from guardrail.prompt_guard import BackendPrediction, PromptGuardLabels, resolve_label_mapping
+from guardrail.prompt_guard import (
+    BackendPrediction,
+    PromptGuardLabels,
+    resolve_label_mapping,
+)
 from guardrail.report import validate_final_report
 from guardrail.runtime import DispatcherStore, issue_canary
 from guardrail.yara_scanner import (
@@ -528,3 +534,276 @@ def test_yara_override_context_is_per_string_not_global() -> None:
     ]
     assert yara_records, "bằng chứng YARA cho OVERRIDE không bị mất"
     assert any("thiếu ngữ cảnh promptware" in note for note in result.limitations)
+
+
+def test_prompt_guard_scans_static_and_telemetry_once_and_keeps_each_source() -> None:
+    static_only = "This second static text has no prompt instruction"
+    backend = StubPromptGuardBackend()
+
+    result = run_pipeline(
+        _cape_report(OVERRIDE),
+        artifact_sha256=SHA256,
+        backend=backend,
+        artifact_bytes=b"\x00".join(
+            (OVERRIDE.encode("utf-8"), static_only.encode("utf-8"))
+        ),
+    )
+
+    assert result.processing_state is ProcessingState.COMPLETE
+    assert len(backend.seen) == 1
+    assert backend.seen[0].count(OVERRIDE) == 1
+    assert static_only in backend.seen[0]
+    pg_records = _pg_evidence(result)
+    assert len(pg_records) == 2
+    assert {record["detection_source"] for record in pg_records} == {
+        str(DetectionSource.SANDBOX_API_LOG),
+        str(DetectionSource.STATIC_STRING),
+    }
+
+
+def test_prompt_guard_budget_is_shared_and_overflow_keeps_positive_findings() -> None:
+    backend = StubPromptGuardBackend()
+    result = run_pipeline(
+        _cape_report(OVERRIDE, "This is an additional telemetry sentence"),
+        artifact_sha256=SHA256,
+        backend=backend,
+        artifact_bytes=b"\x00".join(
+            (OVERRIDE.encode("utf-8"), b"This static sentence is also distinct")
+        ),
+        prompt_guard_budget=1,
+    )
+
+    assert backend.seen == [[OVERRIDE]]
+    assert result.processing_state is ProcessingState.PARTIAL
+    assert result.detection_state is DetectionState.DETECTED
+    assert len(_pg_evidence(result)) == 2
+
+
+def test_partial_ingestion_coverage_is_aggregated_without_erasing_positive_findings() -> None:
+    report = _cape_report(OVERRIDE)
+    report["behavior"]["processes"].append("malformed process entry")
+
+    result = run_pipeline(report, artifact_sha256=SHA256, backend=StubPromptGuardBackend())
+
+    assert result.processing_state is ProcessingState.PARTIAL
+    assert result.detection_state is DetectionState.DETECTED
+    assert _pg_evidence(result)
+
+
+def test_negative_prompt_guard_budget_is_rejected() -> None:
+    with pytest.raises(ValueError, match="prompt_guard_budget"):
+        run_pipeline(
+            _cape_report(),
+            artifact_sha256=SHA256,
+            backend=StubPromptGuardBackend(),
+            prompt_guard_budget=-1,
+        )
+
+
+class StubLayaBackend:
+    """Offline Laya boundary double with complete closed-vocabulary answers."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def predict(
+        self,
+        state: str,
+        questions: Mapping[str, object],
+        *,
+        max_len: int,
+        head_max_len: int,
+        min_confidence: float,
+    ) -> Mapping[str, object]:
+        self.calls += 1
+        return {
+            "answers": _valid_laya_answers(),
+            "usage": {"truncated": False, "state_tokens_dropped": 0},
+        }
+
+    def manifest(self) -> Mapping[str, object]:
+        return {}
+
+
+def _valid_laya_answers() -> dict[str, object]:
+    workflow = load_malware_workflow()
+    choices = {
+        "verdict": "BENIGN",
+        "family": "AGENT_TESLA",
+        "persistence": "NO",
+        "c2": "NO",
+    }
+    answers: dict[str, object] = {}
+    for question_id, choice in choices.items():
+        options = list(workflow.questions[question_id]["criteria"])
+        remaining_probability = 0.04 / (len(options) - 1)
+        answers[question_id] = {
+            "type": "choice",
+            "choice": choice,
+            "probabilities": {
+                option: 0.96 if option == choice else remaining_probability
+                for option in options
+            },
+            "answer_confidence": 0.96,
+        }
+    answers["threat_score"] = {
+        "type": "score",
+        "score": 0,
+        "probabilities": {
+            str(index): 0.90 if index == 0 else 0.01 for index in range(11)
+        },
+        "answer_confidence": 0.96,
+    }
+    return answers
+
+
+def _clean_cape_report() -> dict[str, Any]:
+    report = _cape_report("ordinary service status")
+    report["target"] = {"file": {"sha256": SHA256}}
+    report["network"] = {"http": [], "dns": []}
+    return report
+
+
+def _laya_analyzer(backend: StubLayaBackend) -> LayaMalwareAnalyzer:
+    return LayaMalwareAnalyzer(backend=backend, workflow=load_malware_workflow())
+
+
+def test_laya_runs_only_on_clean_pipeline_and_keeps_legacy_report_unchanged() -> None:
+    cape_report = _clean_cape_report()
+    baseline = run_pipeline(
+        cape_report,
+        artifact_sha256=SHA256,
+        backend=StubPromptGuardBackend(),
+        capa_report=_load(CAPA_FIXTURE),
+    )
+    laya_backend = StubLayaBackend()
+
+    result = run_pipeline(
+        cape_report,
+        artifact_sha256=SHA256,
+        backend=StubPromptGuardBackend(),
+        capa_report=_load(CAPA_FIXTURE),
+        malware_analyzer=_laya_analyzer(laya_backend),
+    )
+
+    assert result.processing_state is ProcessingState.COMPLETE
+    assert result.detection_state is DetectionState.NOT_DETECTED
+    assert result.decision.pipeline_action is PolicyAction.ALLOW
+    assert laya_backend.calls == 1
+    assert result.malware_analysis is not None
+    assert result.malware_analysis["ready_for_ai"] is True
+    assert result.malware_analysis["model_invoked"] is True
+    assert result.report == baseline.report
+    assert "malware_analysis" not in baseline.as_dict()
+    assert json.loads(result.to_json())["malware_analysis"] == result.malware_analysis
+    _assert_report_valid(result)
+
+
+def test_laya_is_blocked_for_nonclean_guardrail_outcome() -> None:
+    laya_backend = StubLayaBackend()
+
+    result = _harmless(malware_analyzer=_laya_analyzer(laya_backend))
+
+    assert result.decision.pipeline_action is PolicyAction.TAG_AS_EVIDENCE
+    assert laya_backend.calls == 0
+    assert result.malware_analysis is not None
+    assert result.malware_analysis["status"] == "BLOCKED"
+    assert result.malware_analysis["reason"] == "GUARDRAIL_NOT_CLEAN"
+    assert result.malware_analysis["ready_for_ai"] is False
+    _assert_report_valid(result)
+
+
+def test_laya_is_blocked_when_fact_extraction_is_incomplete() -> None:
+    laya_backend = StubLayaBackend()
+    malformed_capa = {"meta": {"sample": {"sha256": SHA256}}, "rules": []}
+
+    result = run_pipeline(
+        _clean_cape_report(),
+        artifact_sha256=SHA256,
+        backend=StubPromptGuardBackend(),
+        capa_report=malformed_capa,
+        malware_analyzer=_laya_analyzer(laya_backend),
+    )
+
+    assert result.processing_state is ProcessingState.COMPLETE
+    assert result.decision.pipeline_action is PolicyAction.ALLOW
+    assert laya_backend.calls == 0
+    assert result.malware_analysis is not None
+    assert result.malware_analysis["status"] == "BLOCKED"
+    assert result.malware_analysis["reason"] == "FACTS_INCOMPLETE"
+
+
+@pytest.mark.parametrize("mismatch", ["cape", "capa", "artifact_bytes"])
+def test_laya_blocks_sources_not_bound_to_the_pipeline_sha256(mismatch: str) -> None:
+    cape_report = _clean_cape_report()
+    capa_report = cast(dict[str, Any], _load(CAPA_FIXTURE))
+    artifact_bytes = None
+    if mismatch == "cape":
+        cast(dict[str, Any], cape_report["target"])["file"]["sha256"] = "f" * 64
+    elif mismatch == "capa":
+        capa_report["meta"]["sample"]["sha256"] = "f" * 64
+    else:
+        artifact_bytes = b"not the reported sample"
+    laya_backend = StubLayaBackend()
+
+    result = run_pipeline(
+        cape_report,
+        artifact_sha256=SHA256,
+        backend=StubPromptGuardBackend(),
+        capa_report=capa_report,
+        artifact_bytes=artifact_bytes,
+        malware_analyzer=_laya_analyzer(laya_backend),
+    )
+
+    assert laya_backend.calls == 0
+    assert result.malware_analysis is not None
+    assert result.malware_analysis["status"] == "BLOCKED"
+    assert result.malware_analysis["reason"] == "ARTIFACT_MISMATCH"
+    _assert_report_valid(result)
+
+
+def test_laya_opt_in_cannot_be_combined_with_agent_stub() -> None:
+    laya_backend = StubLayaBackend()
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        run_pipeline(
+            _clean_cape_report(),
+            artifact_sha256=SHA256,
+            backend=StubPromptGuardBackend(),
+            capa_report=_load(CAPA_FIXTURE),
+            agent_stub=lambda _request: {},
+            malware_analyzer=_laya_analyzer(laya_backend),
+        )
+
+    assert laya_backend.calls == 0
+
+
+def test_canary_verifies_report_and_companion_as_one_envelope() -> None:
+    token = issue_canary("laya-envelope")
+    cape_report = _clean_cape_report()
+    cape_report["network"]["http"] = [
+        {"uri": f"https://c2.example.invalid/{token}", "host": "c2.example.invalid"}
+    ]
+    laya_backend = StubLayaBackend()
+
+    result = run_pipeline(
+        cape_report,
+        artifact_sha256=SHA256,
+        backend=StubPromptGuardBackend(),
+        capa_report=_load(CAPA_FIXTURE),
+        canaries=[token],
+        malware_analyzer=_laya_analyzer(laya_backend),
+    )
+
+    assert result.canary is not None
+    assert result.canary.leaked is True
+    assert result.canary.released is False
+    assert any("malware_analysis" in hit.locator for hit in result.canary.hits)
+    assert isinstance(result.canary.output, Mapping)
+    assert set(result.canary.output) == {"report", "malware_analysis"}
+    assert result.malware_analysis is not None
+    assert result.malware_analysis["status"] == "BLOCKED"
+    assert result.malware_analysis["reason"] == "OUTPUT_CANARY_LEAK"
+    assert token not in json.dumps(result.malware_analysis, ensure_ascii=False)
+    assert token not in json.dumps(result.canary.output, ensure_ascii=False)
+    _assert_report_valid(result)

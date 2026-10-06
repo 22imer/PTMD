@@ -237,3 +237,14 @@ Kẻ tấn công thường che giấu câu lệnh Prompt Injection bằng Packer
 │ - Xuất báo cáo tuân thủ **Guardrails AI JSON Schema**                                      │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+## 8. Laya — consumer malware-analysis tùy chọn
+
+- **Model card và artifact đã ghim**: [convaiinnovations/laya @ `7b928d828b7b0e022f929d9bd2e44165aa270148`](https://huggingface.co/convaiinnovations/laya/tree/7b928d828b7b0e022f929d9bd2e44165aa270148); [model card tại cùng revision](https://huggingface.co/convaiinnovations/laya/blob/7b928d828b7b0e022f929d9bd2e44165aa270148/README.md).
+- Model card mô tả checkpoint gốc là decision model, nhận state + typed questions và trả typed answers; checkpoint này có context limit 512. Đây là mô tả của nhà phát hành, không phải phép đo trên malware. Accuracy/calibration quảng bá trên tác vụ khác không được chuyển thành claim cho profile này.
+- **Python package**: [PyPI `laya==0.3.28`](https://pypi.org/project/laya/0.3.28/) và [upstream source tag `v0.3.28`](https://github.com/NandhaKishorM/laya/tree/v0.3.28).
+- **Runtime contract**: [tagged `Agent` source](https://github.com/NandhaKishorM/laya/blob/v0.3.28/laya/agent.py) exposes `expected_sha256`, `Agent.system_one`, and usage fields for truncation/option collapse; this is the pinned package API, not a model-quality claim.
+- **Artifact metadata cross-check (2026-10-06)**: [Hugging Face tree API at the pinned model revision](https://huggingface.co/api/models/convaiinnovations/laya/tree/7b928d828b7b0e022f929d9bd2e44165aa270148?recursive=true&expand=true) reports the `model.safetensors` LFS OID matching spec §8. This confirms registry metadata only; no local download, load, or smoke test is implied.
+- Package pin and expected revision/hash live in spec §8 and `reports/integration-pin.json`; pin does not prove package/weights installed or smoke-tested.
+- Quyết định triển khai và giới hạn consumer: [`docs/adr/0006-laya-clean-only-consumer.md`](docs/adr/0006-laya-clean-only-consumer.md).
+- Triển khai local: `src/guardrail/laya_backend.py`, `src/guardrail/malware_analysis.py`, `run_pipeline(..., malware_analyzer=...)` (README §5.1). Bằng chứng hiện tại là gate/serialization smoke synthetic và tests offline; không phải model load/calibration/benchmark.

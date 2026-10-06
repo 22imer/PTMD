@@ -30,6 +30,7 @@ Cài đặt, quickstart, tham số `run_pipeline`, lệnh test/coverage và know
 | `runtime.py` | Lớp 5: Read-Only Dispatcher, ingress filter, Canary Verifier (§3.6). |
 | `report.py` | Output governance: validate §4.2, re-ask ≤2, fallback `ABSTAINED_PARTIAL`. |
 | `pipeline.py` | E2E wiring Module 4: hai nhánh → gate → context → report trên một CAPEv2 report. |
+| `malware_facts.py`, `malware_analysis.py`, `laya_backend.py` | Facts/provenance cùng-mẫu → canonical state → consumer Laya opt-in → companion riêng; lazy cache-only loading (spec §8, ADR-0006). |
 | `evaluation/` | Package Phase 3: `dataset_protocol.py` (T09), `metrics.py` (T10). |
 
 ## Luồng dữ liệu (wiring hiện tại)
@@ -54,6 +55,7 @@ tool result của Agent quay lại đúng ingress policy. Định tuyến theo t
 - `agent_stub=` nhận callable theo `AgentRequest`; mặc định `SimulatedAgent` (xem WARNING bên dưới).
 - `scanner=` cho phép bơm `YaraScanner` lỗi để chạm nhánh coverage `PARTIAL`/`FAILED`.
 - `dispatcher_store=`, `canaries=`, `prompt_guard_config=`, `prompt_guard_budget=` cho các nhánh Lớp 5.
+- `malware_analyzer=` bật companion riêng, chỉ gọi consumer khi policy sạch, coverage đầy đủ và SHA-256 cùng-mẫu; không dùng đồng thời với `agent_stub`. Canary quét report + companion; mặc định không đổi.
 - Fixture `tests/fixtures/`: CAPE `cape_report_sample_harmless.json`/`cape_report_sample_edge_cases.json`, CAPA `cape_report_sample_harmless.json`/`capa_rd_real_small.json`, `dataset_manifest_example.json`, `atlas_snapshot_subset.json`. Smoke model thật là opt-in (`GUARDRAIL_PROMPT_GUARD_SMOKE=1`) và hiện **chưa chạy được** (xem bên dưới).
 
 Chạy test/coverage/type-check: dùng đúng lệnh ở `README.md` §6.
@@ -71,6 +73,7 @@ Chạy test/coverage/type-check: dùng đúng lệnh ở `README.md` §6.
 - **Prompt Guard gated:** model pin `meta-llama/Prompt-Guard-86M` @ `1209add6…7b03` (spec §3.4) trả **403** (kiểm 2026-09-21) ⇒ chưa từng nạp weight thật, `reports/prompt_guard_measurements.json` chưa tồn tại; smoke ghim cứng `load_pin()` nên **không** đổi model chỉ bằng biến môi trường.
 - **Model thay thế:** `meta-llama/Llama-Prompt-Guard-2-86M` @ `a8ded8e6…2fd27` nạp offline được nhưng không drop-in (2 lớp, không `id2label` ngữ nghĩa) ⇒ `resolve_label_mapping` ném `PromptGuardLabelMappingError`; ngưỡng `0.75` chưa hiệu chỉnh cho PG2.
 - **Cuckoo + Phase 3:** `probe_cuckoo_capability()` → `available=False` (cờ `cuckoo_unavailable`) và `scan_cape_report` → `PARTIAL` + `ScanError(CAPABILITY)`, không fallback ngầm; T09/T10 thiếu `reports/{dataset,split}_manifest.json` + `reports/evaluation_results.json` ⇒ protocol/harness đã có, phép đo chưa chạy.
+- **Laya:** `laya==0.3.28`, model `convaiinnovations/laya` @ `7b928d828b7b0e022f929d9bd2e44165aa270148`, expected SHA-256 `891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c`. Chưa xác minh digest local/nạp/smoke thật; `UNCALIBRATED`. Smoke synthetic không thay nghiệm thu model hoặc runner bốn baseline.
 
 Chi tiết blocker, waiver và điều kiện gỡ: `reports/build-report.md` §5, `README.md` §7 mục 6/8.
 

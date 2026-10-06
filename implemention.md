@@ -282,3 +282,5 @@ Báo thêm Baseline Malware Accuracy theo công thức §6.6, tỷ lệ loại p
 - [x] AGENTS/PLAN/spec/intent/ADR/issue đồng bộ theo mức đã kiểm chứng trong T00; phần lệch còn lại theo dõi ở `audit.md` A01–A06.
 
 **Trạng thái bàn giao prototype (2026-09-21):** T01–T08 PASS theo verdict supervisor; smoke E2E chạy với stub backend (model thật gated); T09–T10 có protocol + harness nhưng chưa chạy phép đo thực nghiệm. Chưa chứng minh bất kỳ target SLA nào — phần bị chặn và waiver ở `reports/build-report.md` §5.
+
+**Bổ sung consumer Laya opt-in (2026-10-06, spec §8 / ADR-0006):** đã nối `run_pipeline(..., malware_analyzer=...)`, companion riêng và kiểm policy/coverage/binding/canary qua suite offline + smoke serialized synthetic. Model `convaiinnovations/laya` @ `7b928d828b7b0e022f929d9bd2e44165aa270148` chưa xác minh digest local/nạp/smoke thật; `UNCALIBRATED`. Không tick T05, smoke model thật T08 hoặc nghiệm thu T10 từ bằng chứng stub.

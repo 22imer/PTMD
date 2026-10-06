@@ -1,0 +1,48 @@
+{
+  "fixture_metadata": {
+    "synthetic": true,
+    "purpose": "Laya canonical capability projection tests"
+  },
+  "meta": {
+    "sample": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "rules": {
+    "synthetic/persistence~rule": {
+      "meta": {
+        "namespace": "fixture/persistence",
+        "description": "RAW_RULE_DESCRIPTION",
+        "attack": [
+          {
+            "tactic": "Persistence",
+            "technique": "Boot or Logon Autostart Execution",
+            "subtechnique": "Registry Run Keys",
+            "id": "T1547.001"
+          }
+        ]
+      },
+      "matches": []
+    },
+    "synthetic/network-rule": {
+      "meta": {
+        "namespace": "fixture/network",
+        "description": "RULE_NAME_LEAK_PROBE",
+        "attack": [
+          {
+            "tactic": "Command and Control",
+            "technique": "Application Layer Protocol",
+            "subtechnique": "Web Protocols",
+            "id": "T1071.001"
+          },
+          {
+            "tactic": "Execution",
+            "technique": "Synthetic Unknown Technique",
+            "id": "T9999"
+          }
+        ]
+      },
+      "matches": []
+    }
+  }
+}

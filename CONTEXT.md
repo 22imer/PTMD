@@ -34,6 +34,10 @@ _Avoid_: Antivirus scanner, signature matcher
 Mô hình phân loại chuỗi chuyên biệt siêu nhẹ dựa trên kiến trúc DeBERTa-v2 nhằm phát hiện các nỗ lực tiêm nhiễm chỉ thị và vượt rào ở tầng ngữ nghĩa.
 _Avoid_: LLM Judge, safety filter, content moderation model
 
+**Laya Malware Analysis Consumer**:
+Consumer tùy chọn, thụ động, nhận canonical facts đã binding cùng-mẫu để trả lời câu hỏi đóng về malware behavior; output advisory, có thể abstain, không phải verdict Guardrail hoặc kết luận mẫu lành tính.
+_Avoid_: malware verdict, C2 detector, clean-sample classifier
+
 ## Policy & Governance
 
 **Tag-as-Evidence**:
