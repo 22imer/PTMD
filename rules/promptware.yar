@@ -1,9 +1,23 @@
 // Bộ luật YARA tĩnh — Lớp 1 (T04, spec v1.4.0 §3.2.1).
 //
-// Rule duy nhất dưới đây được port nguyên văn từ spec §3.2.1
-// (`Static_Promptware_InstructionBypass`): giữ nguyên toàn bộ regex, cờ `nocase`
-// và bốn khoá meta `description` / `threat_level` / `mitre_atlas` / `version`.
-// Không thêm rule, không nới lỏng điều kiện.
+// Gồm hai phần, tách bạch:
+//
+// 1. `Static_Promptware_InstructionBypass` — rule tham chiếu, port NGUYÊN VĂN từ
+//    spec §3.2.1 (toàn bộ regex, cờ `nocase`, bốn khoá meta). Không thêm/bớt
+//    string, không nới lỏng điều kiện: spec là nguồn chuẩn, đổi rule này phải đổi
+//    spec + ADR trước.
+// 2. Họ `Promptware_*` — rule MỞ RỘNG (ngoài spec), mỗi rule khai `version`
+//    riêng (`ext-*`) để provenance không ghi nhầm "1.4.0". Chưa có held-out set
+//    và chưa đo FPR trên PE sạch thật: chỉ có test âm tính tổng hợp
+//    (`tests/test_yara_scanner.py`), KHÔNG phải bằng chứng hiệu quả/FPR. Mọi
+//    string phải neo vào ngữ cảnh chỉ thị (động từ mệnh lệnh / tiền tố
+//    delimiter), tránh cụm trung tính như "debug mode on", "end of data",
+//    `<result>` — vốn xuất hiện trong PE hợp lệ.
+//
+// Lưu ý: một finding YARA bất kỳ tại cùng provenance cũng bật
+// `InstructionOverrideContext` (§3.4, `pipeline.py`), nên thêm rule rộng làm
+// yếu bộ lọc FPR "malware command ≠ promptware". Thêm/nới string ở phần 2 phải
+// kèm test âm tính.
 //
 // File này KHÔNG import module nào nên biên dịch được trên mọi YARA build.
 // Rule dùng module `cuckoo` (spec §3.2.2) nằm ở file riêng
@@ -25,16 +39,28 @@ rule Static_Promptware_InstructionBypass {
         $verdict_3 = /output\s+verdict:\s*benign/ nocase
         $role_1 = /system\s+override:\s*role\s*=\s*/ nocase
         $role_2 = /assistant\s+should\s+say\s+nothing\s+is\s+wrong/ nocase
-	$override_4 = /reset\s+(your\s+)?(instructions|context|prompt)/ nocase
-        $override_5 = /system\s+override/ nocase
-        $verdict_4 = /classify\s+.{0,20}goodware/ nocase
-        $verdict_5 = /do\s+not\s+(report|mention)\s+.{0,40}(c2|indicators?|network|exfiltration)/ nocase
-        $verdict_6 = /no\s+malicious\s+(behavior|activity)/ nocase
-        $role_3 = /acting\s+as\s+(a\s+)?(trusted\s+)?(admin|analyst|supervisor)/ nocase
-        $role_4 = /admin\s+clearance/ nocase
-        $role_5 = /(approved|whitelisted)\s+software\s+list/ nocase
     condition:
         any of ($override_*) or any of ($verdict_*) or any of ($role_*)
+}
+
+// --- Phần 2: rule mở rộng (ngoài spec) -------------------------------------
+
+rule Promptware_InstructionBypassExt {
+    meta:
+        description = "Extended instruction-bypass phrasing not covered by the spec reference rule"
+        threat_level = "HIGH"
+        mitre_atlas = "AML.T0051.001"
+        version = "ext-1.0.0"
+    strings:
+        $override_reset  = /reset\s+your\s+(instructions|context|prompt)/ nocase
+        $verdict_goodware = /classify\s+(this\s+|the\s+)?(file|sample|binary|program|it)\s+as\s+goodware/ nocase
+        $verdict_no_ioc  = /do\s+not\s+(report|mention)\s+(the\s+|any\s+)?(c2|command[-\s]and[-\s]control|indicators?\s+of\s+compromise|iocs?|exfiltration)/ nocase
+        $verdict_no_mal  = /(conclude|report|state|say|declare)\s+(that\s+)?(there\s+is\s+)?no\s+malicious\s+(behavior|activity)/ nocase
+        $role_acting     = /you\s+(are|will\s+be)\s+acting\s+as\s+(a\s+)?(trusted\s+)?(admin|analyst|supervisor)/ nocase
+        $role_clearance  = /(has|with|granted)\s+admin\s+clearance/ nocase
+        $role_approved   = /(is|in|on)\s+the\s+(approved|whitelisted)\s+software\s+list/ nocase
+    condition:
+        any of them
 }
 
 rule Promptware_FakeStructure {
@@ -42,17 +68,28 @@ rule Promptware_FakeStructure {
         description = "Detects fake verdict/structure injection"
         threat_level = "HIGH"
         mitre_atlas = "AML.T0051.001"
+        version = "ext-1.0.0"
     strings:
-        $verdict_json = /"?malicious"?\s*[:=]\s*false/ nocase
-        $verdict_tag  = /<\/?(official_verdict|analysis_result|result)[^>]*>/ nocase
+        // Chỉ dạng JSON có trích dẫn khoá. Không khớp `isMalicious: false` hay
+        // `malicious = false` (cấu hình/log hợp lệ).
+        $verdict_json = /"malicious"\s*:\s*false/ nocase
+        // Chỉ tag giả dạng verdict của analyzer; không dùng `<result>` trần
+        // (xuất hiện trong XML/manifest hợp lệ).
+        $verdict_tag  = /<\/?(official_verdict|analysis_result)[^>]*>/ nocase
         // Chỉ dạng có trích dẫn kiểu JSON. Dạng thô `verdict: benign` đã do
         // rule spec §3.2.1 `$verdict_3` bắt; để ở đây sẽ khiến cùng một mảng
         // chuỗi rơi vào hai rule nên `_dedupe_yara_findings` không gộp được,
         // và sinh FPR trên PE sạch.
         $verdict_safe = /"verdict"\s*:\s*"(benign|safe|clean)"/ nocase
-        $end_marker   = /(===\s*end\s+report|end\s+of\s+data|analysis\s+complete)/ nocase
-        $threat_none  = /threat\s*(level)?\s*[:=]\s*(none|safe)/ nocase
-        $whitelist    = /(whitelisted|legitimate\s+software|trusted\s+scanner)/ nocase
+        // Bắt buộc delimiter `===`; "end of data"/"analysis complete" trần là
+        // thông điệp thường gặp của phần mềm hợp lệ.
+        $end_marker   = /={3,}\s*end\s+(of\s+)?(report|data|analysis)/ nocase
+        // Chỉ dạng JSON có trích dẫn; `Threat level: None` trần là chuỗi UI của
+        // sản phẩm AV hợp lệ.
+        $threat_none  = /"threat_?level"\s*:\s*"(none|safe)"/ nocase
+        // Khẳng định về chính mẫu đang phân tích, không phải cụm "legitimate
+        // software" trần (chuỗi UI của sản phẩm AV/installer).
+        $whitelist    = /this\s+(file|sample|binary|program|executable)\s+(is|was|has\s+been)\s+(whitelisted|pre-?cleared|(a\s+)?(legitimate|trusted)\s+(software|scanner|sample|file))/ nocase
     condition:
         any of them
 }
@@ -62,13 +99,16 @@ rule Promptware_Roleplay {
         description = "Detects authority/roleplay injection"
         threat_level = "HIGH"
         mitre_atlas = "AML.T0051.001"
+        version = "ext-1.0.0"
     strings:
-        $auth_1 = /I\s+(am|'m)\s+(the\s+)?(security\s+lead|admin|analyst|supervisor)/ nocase
-        $auth_2 = /(authorize|instruct|clear(ed)?)\s+you\s+to/ nocase
-        $auth_3 = /(maintenance|developer|debug)\s+mode\s+(enabled|on)/ nocase
-        $auth_4 = /(pre-?cleared|approved|whitelisted)\s+(by|sample|file|list)/ nocase
-        $auth_5 = /suppress\s+(all\s+)?(malware\s+)?(alerts|warnings|detections)/ nocase
-        $auth_6 = /(red-?team|penetration\s+test|pentest).{0,30}(benign|clean|safe|ignore)/ nocase
+        // `I'm` không có khoảng trắng trước `'m`; phải kèm chỉ thị theo sau.
+        $auth_1 = /I(\s+am|'m)\s+(the\s+)?(security\s+lead|admin|analyst|supervisor)\b.{0,80}(authori[sz]e|instruct|approve|clear|benign|clean|safe|ignore|skip|suppress|do\s+not|don't)/ nocase
+        $auth_2 = /(authori[sz]e|instruct|clear(ed)?)\s+you\s+to\s+(ignore|skip|classify|mark|report|output|treat|suppress|disregard|say|declare|label)/ nocase
+        $auth_3 = /(entering|switch(ing|ed)?\s+to|now\s+in|enable[sd]?)\s+(a\s+)?(maintenance|developer|debug)\s+mode\b.{0,60}(ignore|skip|disable|bypass|no\s+(alerts?|restrictions?|filters?)|benign|clean|safe)/ nocase
+        $auth_4 = /this\s+(file|sample|binary|program|executable)\s+(is|was|has\s+been)\s+(pre-?cleared|(pre-?)?approved|whitelisted)|pre-?cleared\s+(by|sample|file)/ nocase
+        // Không có "warnings": "suppress warnings" là tuỳ chọn compiler/log hợp lệ.
+        $auth_5 = /suppress\s+(all\s+)?(malware\s+)?(alerts|detections)/ nocase
+        $auth_6 = /(red[-\s]?team|penetration\s+test|pentest)\b.{0,40}(mark|treat|classify|report|label|ignore)\b.{0,30}(benign|clean|safe|alerts|detections)/ nocase
     condition:
         any of them
 }
@@ -76,8 +116,9 @@ rule Promptware_Roleplay {
 rule Promptware_Evasion {
     meta:
         description = "Detects spacing/leet evasion of instruction-bypass"
-        threat_level = "MEDIUM"
+        threat_level = "HIGH"
         mitre_atlas = "AML.T0051.001"
+        version = "ext-1.0.0"
     // Biến thể leet: a=4 b=8 e=3 g=9 i=1 l=1 o=0 s=5 t=7.
     // Mỗi chuỗi liệt kê biến thể TƯỜNG MINH thay vì dùng char class như
     // /ign[0o]ire/: leet thay 1-1 ký tự nên giữ nguyên độ dài, mọi char class
@@ -105,11 +146,10 @@ rule Promptware_Evasion {
         $leet_clean_3 = /c134n/ nocase
         $leet_clean_4 = /cl3an/ nocase
 
+        // `goodw4r` bao `goodw4re`/`goodw4r3`; `g00dw4r` bao `g00dw4r3`.
         $leet_goodware_1 = /g00dware/ nocase
-        $leet_goodware_2 = /goodw4r3/ nocase
-        $leet_goodware_3 = /g00dw4r3/ nocase
-        $leet_goodware_4 = /goodw4re/ nocase
-        $leet_goodware_5 = /goodw4r/ nocase
+        $leet_goodware_2 = /goodw4r/ nocase
+        $leet_goodware_3 = /g00dw4r/ nocase
 
         $leet_verdict_1 = /v3rdict/ nocase
         $leet_verdict_2 = /verd1ct/ nocase
