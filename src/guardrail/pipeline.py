@@ -51,13 +51,31 @@ from guardrail.contracts import (
 from guardrail.evidence import (
     SHA256_PATTERN,
     EvidenceSeed,
-    Finding as EvidenceFinding,
     build_provenance,
     emit_policy_evidence,
 )
+from guardrail.evidence import (
+    Finding as EvidenceFinding,
+)
 from guardrail.extraction import MAX_STRINGS, extract_strings
-from guardrail.normalization import NormalizationEngine, NormalizedText, load_confusables_map
-from guardrail.policy import DetectorResult, DecisionOutcome, evaluate_policy
+from guardrail.malware_analysis import (
+    LayaMalwareAnalyzer,
+    MalwareAnalysisResult,
+    is_laya_eligible,
+    validate_malware_analysis,
+)
+from guardrail.malware_facts import FactsOutcome, extract_malware_facts
+from guardrail.normalization import (
+    NormalizationEngine,
+    NormalizedText,
+    load_confusables_map,
+)
+from guardrail.policy import (
+    DecisionOutcome,
+    DetectorResult,
+    PolicyAction,
+    evaluate_policy,
+)
 from guardrail.prompt_guard import (
     LABEL_JAILBREAK,
     PromptGuardBackend,
@@ -69,9 +87,9 @@ from guardrail.prompt_guard import (
 from guardrail.report import (
     MAX_RE_ASKS,
     AgentRequest,
+    ReAskController,
     ReportOutcome,
     ReportValidator,
-    ReAskController,
     build_fallback_report,
     validate_final_report,
 )
@@ -159,6 +177,7 @@ class PipelineResult(NamedTuple):
     report_outcome: ReportOutcome
     canary: CanaryVerdict | None
     limitations: list[str]
+    malware_analysis: MalwareAnalysisResult | None
 
     @property
     def report_status(self) -> object:
@@ -172,7 +191,7 @@ class PipelineResult(NamedTuple):
     def as_dict(self) -> dict[str, object]:
         """Bản JSON-hoá tất định của toàn bộ kết quả (kể cả payload và evidence)."""
         decision = self.decision
-        return {
+        serialized: dict[str, object] = {
             "artifact_sha256": self.artifact_sha256,
             "processing_state": str(self.processing_state),
             "detection_state": str(self.detection_state),
@@ -200,6 +219,9 @@ class PipelineResult(NamedTuple):
             "canary": None if self.canary is None else _canary_dict(self.canary),
             "limitations": list(self.limitations),
         }
+        if self.malware_analysis is not None:
+            serialized["malware_analysis"] = dict(self.malware_analysis)
+        return serialized
 
     def to_json(self) -> str:
         """JSON khóa sắp xếp — hai lần chạy cùng đầu vào cho cùng chuỗi byte."""
@@ -217,6 +239,82 @@ def _canary_dict(verdict: CanaryVerdict) -> dict[str, object]:
         ],
         "evidence": [dict(record) for record in verdict.evidence],
     }
+
+
+def _empty_malware_facts() -> FactsOutcome:
+    return FactsOutcome(
+        facts=(),
+        links=(),
+        coverage=ProcessingState.FAILED,
+        errors=(),
+        behavior_available=False,
+        network_available=False,
+        capa_available=False,
+    )
+
+
+def _validate_laya_companion(
+    result: MalwareAnalysisResult,
+    facts: FactsOutcome,
+    analyzer: LayaMalwareAnalyzer,
+    artifact_sha256: str,
+) -> None:
+    errors = validate_malware_analysis(
+        result,
+        facts=facts,
+        workflow=analyzer.workflow,
+        artifact_sha256=artifact_sha256,
+    )
+    if errors:
+        raise PipelineError("malware_analysis companion failed schema or provenance validation")
+
+
+def _laya_companion(
+    analyzer: LayaMalwareAnalyzer,
+    facts: FactsOutcome | None,
+    *,
+    source_binding_failed: bool,
+    artifact_sha256: str,
+    processing_state: ProcessingState,
+    detection_state: DetectionState,
+    outcome: DecisionOutcome,
+) -> MalwareAnalysisResult:
+    if source_binding_failed or facts is None:
+        result = analyzer.blocked(
+            None,
+            artifact_sha256=artifact_sha256,
+            reason="ARTIFACT_MISMATCH",
+            limitations=["CAPE/CAPA/artifact SHA-256 binding failed; Laya was not invoked."],
+        )
+        validation_facts = _empty_malware_facts()
+    elif not is_laya_eligible(processing_state, detection_state, outcome, facts.coverage):
+        validation_facts = facts
+        policy_is_clean = (
+            processing_state is ProcessingState.COMPLETE
+            and detection_state is DetectionState.NOT_DETECTED
+            and outcome.pipeline_action is PolicyAction.ALLOW
+        )
+        if policy_is_clean:
+            result = analyzer.blocked(
+                facts,
+                artifact_sha256=artifact_sha256,
+                reason="FACTS_INCOMPLETE",
+                limitations=["Malware fact coverage is incomplete; Laya was not invoked."],
+            )
+        else:
+            result = analyzer.blocked(
+                facts,
+                artifact_sha256=artifact_sha256,
+                reason="GUARDRAIL_NOT_CLEAN",
+                limitations=["Guardrail policy or detector coverage blocked the Laya handoff."],
+            )
+    else:
+        validation_facts = facts
+        result = analyzer.analyze(facts, artifact_sha256=artifact_sha256)
+        # Readiness is the verified handoff gate, not a model verdict.
+        result["ready_for_ai"] = True
+    _validate_laya_companion(result, validation_facts, analyzer, artifact_sha256)
+    return result
 
 
 def _atlas_mappings(code: object) -> list[MitreAtlasMapping]:
@@ -461,37 +559,17 @@ def _coverage_seed(
 
 def _prompt_guard_findings(
     service: PromptGuardService,
-    normalized: Sequence[NormalizedText],
-    provenance_by_text: Mapping[str, NormalizedText],
+    inputs: Sequence[tuple[NormalizedText, DetectionSource]],
     *,
     yara_flagged_texts: frozenset[str] = frozenset(),
     target_entity_is_llm: bool = False,
 ) -> tuple[list[EvidenceFinding], bool, ProcessingState, int]:
-    """Chạy Prompt Guard trên chuỗi đã chuẩn hoá, áp predicate §3.4.
+    """Classify unique normalized text while retaining every source/provenance pair."""
+    sources_by_text: dict[str, list[tuple[NormalizedText, DetectionSource]]] = {}
+    for item, source in inputs:
+        sources_by_text.setdefault(item.normalized_string, []).append((item, source))
 
-    Trả ``(findings_dương_tính, errored, coverage, số_bị_lọc)``. Một dương tính
-    không truy nguyên được provenance **không** đủ điều kiện cho ``DETECTED``
-    (§3.5.1.1), nên được đánh dấu ``errored`` thay vì âm tính giả.
-
-    Predicate Malware Command vs. Promptware (spec §3.4):
-    ``IsPromptware = ModelDetected ∧ (TargetEntityIsLLM ∨ InstructionOverrideContext)``.
-
-    - ``target_entity_is_llm`` — quyết định của caller (contract provenance +
-      loại nguồn; docstring ``prompt_guard``: chuỗi API-log của ``cmd.exe`` ⇒
-      ``False``). Pipeline mặc định ``False``; integrator E2E biết chuỗi có
-      được nhúngverbatim vào context LLM hay không thì truyền ``True``.
-    - ``yara_flagged_texts`` — kết luận của nhánh YARA (``InstructionOverrideContext``):
-      các normalized string mà ruleset tĩnh (họ override/verdict/role của
-      §3.2.1) đã khớp trong cùng lượt chạy.
-
-    Chuỗi ``ModelDetected`` nhưng thiếu cả hai ngữ cảnh là **malware command**,
-    không phải promptware — bị lọc khỏi finding (chống FPR Nhóm 3) và được đếm
-    vào giá trị trả về thứ tư để caller ghi ``limitations`` tường minh, không
-    che giấu phát hiện của model.
-    """
-    classification = service.classify_batch(
-        [item.normalized_string for item in normalized]
-    )
+    classification = service.classify_batch(list(sources_by_text))
     findings: list[EvidenceFinding] = []
     seen: set[str] = set()
     missing_provenance = False
@@ -500,8 +578,8 @@ def _prompt_guard_findings(
         if not score.detected or score.text in seen:
             continue
         seen.add(score.text)
-        item = provenance_by_text.get(score.text)
-        if item is None:
+        source_items = sources_by_text.get(score.text)
+        if not source_items:
             missing_provenance = True
             continue
         if not is_promptware(
@@ -513,23 +591,24 @@ def _prompt_guard_findings(
             continue
         label = LABEL_JAILBREAK if score.predicted_label == LABEL_JAILBREAK else "INJECTION"
         code = "AML.T0054" if label == LABEL_JAILBREAK else "AML.T0051.001"
-        findings.append(
-            EvidenceFinding(
-                detector_name=DetectorName.META_PROMPT_GUARD,
-                rule_or_model_version=classification.revision,
-                score=score.detection_score,
-                detection_source=DetectionSource.SANDBOX_API_LOG,
-                provenance=item.provenance,
-                interpretation_summary=(
-                    f"Prompt Guard phân loại {label} (score={score.detection_score:.3f}) "
-                    "trên chuỗi telemetry đã chuẩn hoá."
-                ),
-                transform_chain=list(item.transform_chain),
-                mitre_atlas_mappings=_atlas_mappings(code),
-                owasp_llm_mapping=_owasp_mapping(code),
-                confidence_score=score.detection_score,
+        for item, source in source_items:
+            findings.append(
+                EvidenceFinding(
+                    detector_name=DetectorName.META_PROMPT_GUARD,
+                    rule_or_model_version=classification.revision,
+                    score=score.detection_score,
+                    detection_source=source,
+                    provenance=item.provenance,
+                    interpretation_summary=(
+                        f"Prompt Guard phân loại {label} (score={score.detection_score:.3f}) "
+                        f"trên chuỗi đã chuẩn hoá từ {source}."
+                    ),
+                    transform_chain=list(item.transform_chain),
+                    mitre_atlas_mappings=_atlas_mappings(code),
+                    owasp_llm_mapping=_owasp_mapping(code),
+                    confidence_score=score.detection_score,
+                )
             )
-        )
     errored = classification.detected and missing_provenance
     return findings, errored, classification.coverage, filtered_non_promptware
 
@@ -540,6 +619,7 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
     artifact_sha256: str,
     backend: PromptGuardBackend | None = None,
     agent_stub: Callable[[AgentRequest], object] | None = None,
+    malware_analyzer: LayaMalwareAnalyzer | None = None,
     capa_report: object | None = None,
     artifact_bytes: bytes | None = None,
     cape_report_path: str | Path | None = None,
@@ -565,6 +645,8 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
             ``META_PROMPT_GUARD`` ghi ``errored`` (model gated) ⇒ ``INCONCLUSIVE``.
         agent_stub: callable nhận ``AgentRequest`` trả report; mặc định
             :class:`SimulatedAgent`.
+        malware_analyzer: opt-in passive consumer; disabled by default and
+            mutually exclusive with ``agent_stub``.
         capa_report: output ``capa -j`` đã parse cho nhánh capability (tuỳ chọn).
         artifact_bytes: bytes artifact cho nhánh static (extraction → normalization
             → YARA). ``None`` ⇒ static không nằm trong profile.
@@ -579,13 +661,12 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         year / first_evidence_sequence: cấp ``evidence_id`` tất định.
         max_re_asks: số lần re-ask tối đa (spec §3.6: 2).
         prompt_guard_config: cấu hình Prompt Guard; mặc định lấy từ file ghim.
-        prompt_guard_budget: trần số chuỗi đưa vào Prompt Guard.
+        prompt_guard_budget: trần số chuỗi chuẩn hoá duy nhất gửi cho Prompt Guard,
+            dùng chung giữa telemetry và strings trích từ artifact.
         prompt_guard_target_entity_is_llm: biến ngữ cảnh ``TargetEntityIsLLM`` của
-            predicate §3.4 — caller khẳng định chuỗi telemetry hướng tới LLM
-            (được nhúng vào context agent) thì truyền ``True``; mặc định ``False``
-            (chuỗi API-log mặc định là lệnh/dữ liệu malware, không phải prompt).
-            ``InstructionOverrideContext`` tự suy từ kết luận nhánh YARA trong
-            cùng lượt chạy.
+            predicate §3.4 — caller khẳng định chuỗi đầu vào được chuyển vào context
+            LLM thì truyền ``True``; mặc định ``False``. ``InstructionOverrideContext``
+            tự suy từ YARA của các nhánh static và telemetry trong cùng lượt chạy.
         file_type / packer_detected: metadata report; ``file_type=None`` ⇒ suy từ
             ``cape_report.target.file.type``.
 
@@ -597,6 +678,25 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         raise ValueError(
             f"artifact_sha256 phải là 64 ký tự hex, nhận {artifact_sha256!r}"
         )
+    if prompt_guard_budget < 0:
+        raise ValueError("prompt_guard_budget phải >= 0")
+    if malware_analyzer is not None and agent_stub is not None:
+        raise ValueError("malware_analyzer and agent_stub are mutually exclusive")
+
+    malware_facts: FactsOutcome | None = None
+    malware_source_binding_failed = False
+    if malware_analyzer is not None:
+        try:
+            malware_facts = extract_malware_facts(
+                cape_report,
+                capa_report=capa_report,
+                artifact_sha256=artifact_sha256,
+                artifact_bytes=artifact_bytes,
+                workflow=malware_analyzer.workflow,
+            )
+        except ValueError:
+            malware_source_binding_failed = True
+
 
     # --- 1. Telemetry ingestion (Module 1, dynamic branch) ------------------
     ingestion = TelemetryIngestionAdapter().ingest(cape_report)
@@ -611,17 +711,15 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
     telemetry_normalized = [
         engine.normalize(item["raw_string"], item["provenance"]) for item in ingestion.strings
     ]
-    provenance_by_text = {item.normalized_string: item for item in telemetry_normalized}
-    if len(provenance_by_text) != len(telemetry_normalized):
-        limitations.append(
-            "Có chuỗi telemetry trùng sau chuẩn hoá; bản ghi đầu tiên giữ provenance."
-        )
+    prompt_guard_inputs: list[tuple[NormalizedText, DetectionSource]] = [
+        (item, DetectionSource.SANDBOX_API_LOG) for item in telemetry_normalized
+    ]
 
     scanner = scanner if scanner is not None else YaraScanner()
 
     # --- 3. Detection branches ---------------------------------------------
     detector_results: list[DetectorResult] = []
-    coverage: list[ProcessingState] = []
+    coverage: list[ProcessingState] = [ingestion.coverage]
     findings: list[EvidenceFinding] = []
 
     # 3a. Dynamic telemetry branch: YARA trên chuỗi đã chuẩn hoá.
@@ -629,6 +727,7 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         telemetry_normalized, detection_source=DetectionSource.SANDBOX_API_LOG
     )
     coverage.append(telemetry_scan.coverage)
+    yara_findings_for_context = list(telemetry_scan.findings)
     telemetry_findings = _dedupe_yara_findings(telemetry_scan.findings)
     telemetry_positive = bool(telemetry_findings)
     telemetry_errored = (
@@ -666,7 +765,11 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         static_normalized = [
             engine.normalize(item["raw_string"], item["provenance"]) for item in extraction.strings
         ]
+        prompt_guard_inputs.extend(
+            (item, DetectionSource.STATIC_STRING) for item in static_normalized
+        )
         static_scan = scanner.scan_normalized(static_normalized)
+        yara_findings_for_context.extend(static_scan.findings)
         coverage.append(static_scan.coverage)
         static_findings = _dedupe_yara_findings(static_scan.findings)
         static_positive = bool(static_findings)
@@ -741,10 +844,23 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
     else:
         # InstructionOverrideContext (§3.4): kết luận của nhánh YARA — các chuỗi
         # ruleset tĩnh (họ override/verdict/role) đã khớp trong lượt chạy này.
+        unique_texts = list(
+            dict.fromkeys(item.normalized_string for item, _ in prompt_guard_inputs)
+        )
+        prompt_guard_overflow = len(unique_texts) > prompt_guard_budget
+        selected_texts = set(unique_texts[:prompt_guard_budget])
+        selected_prompt_guard_inputs = [
+            (item, source)
+            for item, source in prompt_guard_inputs
+            if item.normalized_string in selected_texts
+        ]
         yara_flagged_texts = frozenset(
-            text
-            for text, item in provenance_by_text.items()
-            if any(f.provenance == item.provenance for f in telemetry_findings)
+            item.normalized_string
+            for item, _ in selected_prompt_guard_inputs
+            if any(
+                finding.provenance == item.provenance
+                for finding in yara_findings_for_context
+            )
         )
         service = PromptGuardService(config=prompt_guard_config, backend=backend)
         try:
@@ -755,8 +871,7 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
                 guard_filtered,
             ) = _prompt_guard_findings(
                 service,
-                telemetry_normalized[:prompt_guard_budget],
-                provenance_by_text,
+                selected_prompt_guard_inputs,
                 yara_flagged_texts=yara_flagged_texts,
                 target_entity_is_llm=prompt_guard_target_entity_is_llm,
             )
@@ -771,6 +886,15 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
             )
             limitations.append(f"Prompt Guard thất bại: {exc}")
         else:
+            if prompt_guard_overflow:
+                limitations.append(
+                    "Prompt Guard vượt budget chung: "
+                    f"bỏ qua {len(unique_texts) - prompt_guard_budget} chuỗi chuẩn hoá duy nhất; "
+                    "coverage PARTIAL."
+                )
+                guard_coverage = _coverage_states(
+                    (guard_coverage, ProcessingState.PARTIAL)
+                )
             if guard_filtered:
                 limitations.append(
                     f"Prompt Guard phát hiện {guard_filtered} chuỗi đối kháng nhưng thiếu "
@@ -853,6 +977,19 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         check = validate_final_report(report, evidence_store=evidence)
         if not check.valid:
             raise PipelineError(f"fallback report không hợp lệ: {check.errors}")
+        malware_analysis = (
+            _laya_companion(
+                malware_analyzer,
+                malware_facts,
+                source_binding_failed=malware_source_binding_failed,
+                artifact_sha256=artifact_sha256,
+                processing_state=processing_state,
+                detection_state=detection_state,
+                outcome=outcome,
+            )
+            if malware_analyzer is not None
+            else None
+        )
         return PipelineResult(
             artifact_sha256=artifact_sha256,
             processing_state=processing_state,
@@ -873,6 +1010,7 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
             ),
             canary=None,
             limitations=limitations,
+            malware_analysis=malware_analysis,
         )
 
     # --- 8. Spotlighting context ------------------------------------------
@@ -941,6 +1079,19 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
             "(HARD_BLOCK, không side effect)."
         )
 
+    malware_analysis = (
+        _laya_companion(
+            malware_analyzer,
+            malware_facts,
+            source_binding_failed=malware_source_binding_failed,
+            artifact_sha256=artifact_sha256,
+            processing_state=processing_state,
+            detection_state=detection_state,
+            outcome=outcome,
+        )
+        if malware_analyzer is not None
+        else None
+    )
     # --- 10. Canary Token Verifier ----------------------------------------
     canary_verdict: CanaryVerdict | None = None
     if canaries:
@@ -952,10 +1103,40 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
                 len(dispatcher.blocked_evidence) if dispatcher is not None else 0
             ),
         )
-        canary_verdict = verifier.verify(report)
+        canary_input: object = report
+        if malware_analysis is not None:
+            canary_input = {
+                "report": report,
+                "malware_analysis": dict(malware_analysis),
+            }
+        canary_verdict = verifier.verify(canary_input)
         if canary_verdict.leaked:
             evidence = list(evidence) + list(canary_verdict.evidence)
-            patched = _merge_canary_findings(canary_verdict.output, canary_verdict)
+            sanitized_report: object = canary_verdict.output
+            if malware_analysis is not None:
+                if not isinstance(canary_verdict.output, Mapping) or "report" not in canary_verdict.output:
+                    raise PipelineError("canary verifier returned an invalid companion envelope")
+                sanitized_report = canary_verdict.output["report"]
+                if any(
+                    hit.locator.startswith("report.malware_analysis")
+                    for hit in canary_verdict.hits
+                ):
+                    assert malware_analyzer is not None
+                    malware_analysis = malware_analyzer.blocked(
+                        None,
+                        artifact_sha256=artifact_sha256,
+                        reason="OUTPUT_CANARY_LEAK",
+                        limitations=[
+                            "Canary detected in malware_analysis; facts and links were withheld."
+                        ],
+                    )
+                    _validate_laya_companion(
+                        malware_analysis,
+                        _empty_malware_facts(),
+                        malware_analyzer,
+                        artifact_sha256,
+                    )
+            patched = _merge_canary_findings(sanitized_report, canary_verdict)
             check = validate_final_report(
                 patched,
                 evidence_store=evidence,
@@ -980,10 +1161,19 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
                     errors=check.errors,
                     abstained=True,
                 )
+            if malware_analysis is not None:
+                canary_verdict = canary_verdict._replace(
+                    output={
+                        "report": dict(report),
+                        "malware_analysis": dict(malware_analysis),
+                    }
+                )
             limitations.append(
-                "Output agent rò rỉ canary/marker hệ thống: đã tước nội dung và không "
-                "phát hành output gốc."
+                "Output agent hoặc companion malware_analysis rò rỉ canary/marker hệ thống: "
+                "đã tước nội dung và không phát hành output gốc."
             )
+    if not isinstance(report, Mapping):
+        raise PipelineError("final report is not a mapping")
 
     return PipelineResult(
         artifact_sha256=artifact_sha256,
@@ -1000,6 +1190,7 @@ def run_pipeline(  # noqa: PLR0913 - E2E wiring cần nhiều tham số cấu h�
         report_outcome=report_outcome,
         canary=canary_verdict,
         limitations=limitations,
+        malware_analysis=malware_analysis,
     )
 
 

@@ -26,6 +26,20 @@
     "revision": "1209add6ca7d9c1d815171b8e5571587fe3e7b03",
     "source": "https://huggingface.co/api/models/meta-llama/Prompt-Guard-86M"
   },
+  "laya": {
+    "python_package": "laya==0.3.28",
+    "python_source_tag": "v0.3.28",
+    "model": "convaiinnovations/laya",
+    "revision": "7b928d828b7b0e022f929d9bd2e44165aa270148",
+    "artifact": "model.safetensors",
+    "expected_sha256": "891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c",
+    "metadata_source": "https://huggingface.co/api/models/convaiinnovations/laya/tree/7b928d828b7b0e022f929d9bd2e44165aa270148?recursive=true&expand=true",
+    "metadata_sha256_checked_at": "2026-10-06",
+    "local_sha256_verified": false,
+    "model_loaded": false,
+    "smoke_tested": false,
+    "calibration_status": "UNCALIBRATED"
+  },
   "fixture": {
     "path": "tests/fixtures/cape_report_sample_harmless.json",
     "sha256": "7b922e9676300acae838339110e6d3874896c65b406cc8cdc0f02da63f3b2dd8",

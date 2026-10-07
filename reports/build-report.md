@@ -93,6 +93,9 @@ depth/64KB/printable cho de-obfuscation), **R11** (LOW — nửa còn lại: `pa
 | Nhánh provenance memory dump (`VIRTUAL_ADDRESS`) chưa có runtime evidence | **Defer có tuyên bố** (spec §3.2.2 note, residual W-1): cần dump PE-sieve thật ở Phase 2; không coi là delivery defect của T02 | Lab cung cấp memory dump + metadata nguồn xác nhận |
 | Benchmark thực nghiệm T09/T10 (dataset, split, 4 baseline, timing, §6.7 pass/fail) | **Blocked ngoài tầm executor**: thiếu `reports/{dataset,split}_manifest.json` và `reports/evaluation_results.json`; artifact hiện có là `*.synthetic-example.*` — số liệu harness, **không được trích dẫn như bằng chứng hiệu quả** | Duyệt dataset paired 200 pairs trong lab + chạy 4 baseline trên test split |
 | Residual mở không waiver | F-R2 (MEDIUM), F-R11/F-R13/F-R15 (LOW), F-R14 (NIT), C-R-C4 (LOW — surrogate trong keyword là vấn đề Lớp 0, T04 báo NOT_DETECTED tường minh), D-low (INFO) | Xem `agent://muc-f-sup`, `agent://muc-c-sup`, `agent://muc-d-sup` |
+| Laya consumer opt-in (spec §8, ADR-0006) | Wiring offline đã kiểm: 56 test pipeline/analyzer/backend PASS (2026-10-06); smoke serialized companion synthetic → `ALLOW`, `COMPLETE`, `ready_for_ai=true`, một lần gọi boundary stub. Không nạp model thật; pin giữ ba cờ local/load/smoke `false`, `UNCALIBRATED` | Xác minh weight cache theo revision/hash ghim, smoke vô hại với model thật và ghi manifest/timing trước claim chất lượng; không đóng T05 hay gate benchmark |
+
+Kiểm chứng bổ sung 2026-10-06: `.venv/bin/python -m pytest -q` → `592 passed, 2 skipped`; `pyright src/guardrail tests --outputjson` phân tích 41 file → `274 errors, 2 warnings`, không tăng trần ADR-0005. `pyright` không đối số hiện phân tích 0 file vì include gộp `"src/guardrail tests"`; không dùng kết quả rỗng làm bằng chứng.
 
 ## 6. Định hướng Phase 3 (ngắn)
 

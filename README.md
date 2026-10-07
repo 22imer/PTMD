@@ -173,6 +173,7 @@ executive_summary: Simulated agent: 2 bản ghi đối kháng, 5 capability ATT&
 | `capa_report` | object \| None | Output `capa -j` đã parse cho nhánh capability |
 | `backend` | `PromptGuardBackend \| None` | `None` ⇒ PG errored ⇒ INCONCLUSIVE |
 | `agent_stub` | callable \| None | Mặc định `SimulatedAgent` (chỉ dev/test) |
+| `malware_analyzer` | `LayaMalwareAnalyzer \| None` | Consumer opt-in; không dùng đồng thời với `agent_stub`; mặc định tắt |
 | `cape_report_path` | str \| Path \| None | Bật nhánh Cuckoo (thường unavailable) |
 | `scanner` | `YaraScanner \| None` | Bơm scanner khác/lỗi cho test |
 | `dispatcher_store` | store \| None | Cấp Read-Only Dispatcher cho agent |
@@ -188,6 +189,18 @@ Backend và agent:
 - Agent thật: truyền `agent_stub=` (callable nhận `AgentRequest`, trả report). `SimulatedAgent` chỉ để smoke E2E.
 
 Trả về `PipelineResult` (NamedTuple): `artifact_sha256`, `processing_state`, `detection_state`, `decision`, `detector_results`, `required_detectors`, `capabilities`, `evidence`, `payload`, `agent_invoked`, `report`, `report_outcome`, `canary`, `limitations`; tiện ích `report_status`/`verdict` (đọc từ `report`), `as_dict()`, `to_json()` (khóa sắp xếp, hai lần chạy cùng đầu vào cho cùng chuỗi byte). `payload` là `SpotlightedPayload | None` — `None` khi `agent_invoked=False` (hàng FAILED của §3.5.1: pipeline không hỏi agent). Tất định trong cấu hình offline (mặc định `SimulatedAgent`, `backend=None`, config cố định, không mạng/thời gian thực); backend/agent thật có thể cho kết quả khác giữa các lần chạy.
+
+### 5.1 Laya — companion opt-in, không thay legacy report
+
+Khởi tạo `LayaMalwareAnalyzer(backend=LocalLayaBackend(config=load_laya_config()), workflow=load_malware_workflow())` từ `guardrail.malware_analysis` và `guardrail.laya_backend`, rồi truyền `malware_analyzer=`. Extra tùy chọn trong `pyproject.toml` ghim `laya==0.3.28`; không cần package này cho đường mặc định. Backend lazy-load từ cache (`local_files_only=True`), kiểm SHA-256 trước khi nạp, không tự tải weight.
+
+Chỉ handoff khi `COMPLETE + NOT_DETECTED + ALLOW`, facts coverage đầy đủ và CAPE/CAPA/bytes được binding cùng `artifact_sha256`. Mismatch, thiếu coverage hoặc policy không sạch tạo companion `BLOCKED`, không gọi Laya. `ready_for_ai` là trạng thái đủ điều kiện handoff, không phải verdict `BENIGN`; lỗi inference/thiếu cache không được thay bằng verdict giả.
+
+`PipelineResult.malware_analysis` là sibling riêng; `as_dict()`/`to_json()` chỉ thêm khóa này khi opt-in. Legacy `report` và schema không đổi. Canary verifier quét envelope `{report, malware_analysis}`; companion có hit bị chặn với `OUTPUT_CANARY_LEAK`, không phát hành facts/links đã bị redact. Canonical state không chứa raw text/IOC; facts và IOC có provenance nằm ở companion (ADR-0006, spec §8).
+
+Pin model `convaiinnovations/laya` @ `7b928d828b7b0e022f929d9bd2e44165aa270148`, expected `model.safetensors` SHA-256 `891102d372688fc2a094dac56a384bc537b87c63f21f9f3dac0be2b7cbc8d86c`. Chưa xác minh cache/digest local, chưa nạp/smoke model thật; trạng thái `UNCALIBRATED`. Smoke synthetic chỉ chứng minh wiring/gate/serialization, không chứng minh chất lượng malware analysis hoặc hiệu quả benchmark.
+
+Kiểm chứng 2026-10-06: suite offline `592 passed, 2 skipped`; nhóm pipeline/analyzer/backend `56 passed`. Type-check thực dùng `pyright src/guardrail tests`: `274 errors, 2 warnings` (dưới trần ADR-0005). Cấu hình checkout hiện có một include `"src/guardrail tests"` khiến lệnh `pyright` không đối số phân tích 0 file; không coi đó là PASS.
 
 ## 6. Test & kiểm tra
 
@@ -243,6 +256,7 @@ print(m.config.num_labels, dict(m.config.id2label))"   # 2 {0: 'LABEL_0', 1: 'LA
 6. **Chưa đo được thật:** model tham chiếu spec §3.4 `meta-llama/Prompt-Guard-86M` (revision ghim `1209add6…7b03`) vẫn chờ Meta duyệt (HTTP 403, kiểm 2026-09-21) nên chưa có `reports/prompt_guard_measurements.json`; module Cuckoo không có trong build YARA local (`cuckoo_unavailable`); Phase 3 mới có protocol/harness — `reports/evaluation_results.synthetic-example.json` là số liệu harness, **không phải bằng chứng hiệu quả**.
 7. **Fixture không phải pháp y:** fixture CAPE tổng hợp với hash placeholder toàn 0; `run_pipeline` không kiểm CAPE/CAPA cùng một sample. Production phải tự xác minh sha256 mẫu thật và nguồn cùng-mẫu trước khi tin kết quả.
 8. **Model Prompt Guard thay thế chưa nối được vào Lớp 3:** `meta-llama/Llama-Prompt-Guard-2-86M` @ `a8ded8e697ce7c355e395a0df51f94adb4a2fd27` đã tải về máy (2026-09-21; HF cache; `model.safetensors` 1.115.268.200 byte, sha256 `e72017dbbe89c1232dcbc4a74ce0c389db5b468c42afd05850347b2a8c5f6b09`) và nạp offline được (`HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1`; 11,7 s CPU; 278.810.882 tham số). Không drop-in: `config.json` **không** có `id2label` nên transformers tự sinh `{0: LABEL_0, 1: LABEL_1}`, và PG2 là phân loại **2 lớp** (Meta bỏ nhãn `INJECTION`) ⇒ `resolve_label_mapping` ném `PromptGuardLabelMappingError` khi `labels()`/`run()`; ngưỡng `0.75` của spec §3.4 là của Prompt-Guard-86M, **chưa** hiệu chỉnh cho PG2. Phân tách thực đo (3 câu, không qua pipeline): injection/jailbreak → index 1 (0,99947 / 0,99644), benign → index 0 (0,99950). Nối model này = thay đổi source + pin + calibration riêng.
+9. **Laya opt-in chưa nghiệm thu model thật:** pin/checksum nguồn không chứng minh weight local đã được xác minh hoặc nạp. `reports/integration-pin.json` giữ `local_sha256_verified=false`, `model_loaded=false`, `smoke_tested=false`. Binding cùng-mẫu ở §5.1 chỉ áp dụng companion opt-in; không đóng hạn chế legacy ở mục 7 hay gate benchmark.
 
 Chi tiết blocked/waiver: `reports/build-report.md` §5.
 

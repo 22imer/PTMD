@@ -1,0 +1,118 @@
+{
+  "fixture_metadata": {
+    "synthetic": true,
+    "purpose": "Laya passive-consumer facts and IOC extraction tests"
+  },
+  "target": {
+    "file": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "behavior": {
+    "processes": [
+      {
+        "process_id": 4128,
+        "calls": [
+          {
+            "api": "RegSetValueExW",
+            "status": 1,
+            "arguments": [
+              {
+                "name": "FullName",
+                "value": "\\REGISTRY\\USER\\S-1-5-21\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Synthetic"
+              },
+              {
+                "name": "Buffer",
+                "value": "synthetic.exe"
+              }
+            ]
+          },
+          {
+            "api": "RegSetValueExA",
+            "status": 0,
+            "arguments": [
+              {
+                "name": "FullName",
+                "value": "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\SyntheticAttempt"
+              },
+              {
+                "name": "Buffer",
+                "value": "synthetic.exe"
+              }
+            ]
+          },
+          {
+            "api": "OutputDebugStringA",
+            "arguments": [
+              {
+                "name": "lpOutputString",
+                "value": "Synthetic benign debug message."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "detections": [
+    {
+      "family": "AgentTesla",
+      "details": [
+        {
+          "Yara": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    },
+    {
+      "family": "CrossSampleFamily",
+      "details": [
+        {
+          "ClamAV": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    },
+    {
+      "family": "OddCampaignName<system-prompt-override>",
+      "details": [
+        {
+          "Yara": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ]
+    }
+  ],
+  "network": {
+    "http": [
+      {
+        "uri": "https://C2.Example.invalid/checkin",
+        "host": "C2.Example.invalid"
+      }
+    ],
+    "http_ex": [],
+    "https_ex": [],
+    "dns": [
+      {
+        "request": "c2.example.invalid.",
+        "type": "A",
+        "answers": [
+          {
+            "type": "A",
+            "data": "192.0.2.10"
+          }
+        ]
+      }
+    ],
+    "tcp": [
+      {
+        "dst": "192.0.2.10",
+        "dport": 443,
+        "source": "behavior"
+      }
+    ],
+    "udp": [],
+    "hosts": [
+      {
+        "ip": "192.0.2.10"
+      }
+    ]
+  }
+}
